@@ -1,0 +1,186 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Role {
+  id        String   @id @default(cuid())
+  roleName  String   @unique
+  users     User[]
+}
+
+model User {
+  id           String        @id @default(cuid())
+  fullName     String
+  email        String        @unique
+  password     String
+  isActive     Boolean       @default(true)
+  role         Role          @relation(fields: [roleId], references: [id])
+  roleId       String
+  employee     Employee?     @relation(fields: [employeeId], references: [id])
+  employeeId   String?       @unique
+  refreshTokens RefreshToken[]
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  expiresAt DateTime
+}
+
+model OrganizationUnit {
+  id                String             @id @default(cuid())
+  name              String
+  type              String            
+  parentId          String?
+  parent            OrganizationUnit?  @relation("OrgHierarchy", fields: [parentId], references: [id])
+  children          OrganizationUnit[] @relation("OrgHierarchy")
+  jobs              Job[]
+  attendancePolicies AttendancePolicy[]
+}
+
+model Job {
+  id             String           @id @default(cuid())
+  jobTitle       String
+  orgUnit        OrganizationUnit @relation(fields: [orgUnitId], references: [id])
+  orgUnitId      String
+  employees      Employee[]
+  scheduleAssignments ScheduleAssignment[]
+}
+
+model JobLevel {
+  id        String   @id @default(cuid())
+  levelName String   @unique
+  employees Employee[]
+}
+
+model EmploymentType {
+  id        String     @id @default(cuid())
+  name      String     @unique 
+  employees Employee[]
+}
+
+model Employee {
+  id              String       @id @default(cuid())
+  employeeId      String       @unique 
+  fullName        String
+  email           String       @unique
+  joinDate        DateTime
+  status          String    
+  
+  job             Job          @relation(fields: [jobId], references: [id])
+  jobId           String
+  jobLevel        JobLevel     @relation(fields: [jobLevelId], references: [id])
+  jobLevelId      String
+  employmentType   EmploymentType @relation(fields: [employmentTypeId], references: [id])
+  employmentTypeId String
+  superiorId      String?
+  superior        Employee?    @relation("ManagementChain", fields: [superiorId], references: [id])
+  subordinates    Employee[]   @relation("ManagementChain")
+  
+  user            User?
+  customValues    EmployeeCustomValue[]
+  attendanceLogs  AttendanceLog[]
+  absenceRecords  AbsenceRecord[]
+  attendanceSummaries AttendanceSummary[]
+}
+
+model CustomField {
+  id        String   @id @default(cuid())
+  fieldName String
+  fieldType String   
+  values    EmployeeCustomValue[]
+}
+
+model EmployeeCustomValue {
+  id           String      @id @default(cuid())
+  employee     Employee    @relation(fields: [employeeId], references: [id])
+  employeeId   String
+  field        CustomField @relation(fields: [fieldId], references: [id])
+  fieldId      String
+  value        String      @db.Text
+}
+
+model AttendancePolicy {
+  id              String           @id @default(cuid())
+  orgUnit         OrganizationUnit @relation(fields: [orgUnitId], references: [id])
+  orgUnitId       String
+  policyName      String
+  policyType      String           
+  formulaThreshold Int
+  pointImpact     Decimal
+}
+
+model WorkSchedule {
+  id           String   @id @default(cuid())
+  shiftName    String
+  checkInTime  DateTime
+  checkOutTime DateTime
+  gracePeriod  Int      
+  assignments  ScheduleAssignment[]
+}
+
+model ScheduleAssignment {
+  id             String       @id @default(cuid())
+  job            Job          @relation(fields: [jobId], references: [id])
+  jobId          String
+  workSchedule   WorkSchedule @relation(fields: [workScheduleId], references: [id])
+  workScheduleId String
+  startDate      DateTime
+  endDate        DateTime?
+}
+
+model AttendanceGrade {
+  id          String   @id @default(cuid())
+  gradeLetter String  
+  minScore    Decimal
+  maxScore    Decimal
+  description String?  @db.Text
+  summaries   AttendanceSummary[]
+}
+
+model AttendancePeriod {
+  id          String   @id @default(cuid())
+  periodName  String
+  startDate   DateTime
+  endDate     DateTime
+  status      String   
+  summaries   AttendanceSummary[]
+}
+
+model AttendanceLog {
+  id         String   @id @default(cuid())
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  employeeId String
+  date       DateTime
+  checkIn    DateTime?
+  checkOut   DateTime?
+  status     String   
+}
+
+model AbsenceRecord {
+  id         String   @id @default(cuid())
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  employeeId String
+  type       String   
+  startDate  DateTime
+  endDate    DateTime
+  isApproved Boolean  @default(false)
+}
+
+model AttendanceSummary {
+  id                String           @id @default(cuid())
+  employee          Employee         @relation(fields: [employeeId], references: [id])
+  employeeId        String
+  attendancePeriod  AttendancePeriod @relation(fields: [attendancePeriodId], references: [id])
+  attendancePeriodId String
+  totalScore        Decimal
+  grade             AttendanceGrade  @relation(fields: [gradeId], references: [id])
+  gradeId           String
+}
