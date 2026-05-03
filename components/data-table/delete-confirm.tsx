@@ -39,7 +39,7 @@ export function DeleteConfirm({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel className="border-none hover:bg-gray-100" disabled={isPending}>
+          <AlertDialogCancel className="border-none hover:bg-gray-100 cursor-pointer" disabled={isPending}>
             Cancel
           </AlertDialogCancel>
           <AlertDialogAction 
@@ -47,7 +47,7 @@ export function DeleteConfirm({
               e.preventDefault();
               onConfirm();
             }} 
-            className="bg-red-600 text-white hover:bg-red-700 rounded-lg min-w-[80px]"
+            className="bg-red-500 text-white hover:bg-red-600 rounded-lg min-w-[80px] cursor-pointer"
             disabled={isPending}
           >
             {isPending ? <Loader2 className="animate-spin w-4 h-4" /> : "Delete"}

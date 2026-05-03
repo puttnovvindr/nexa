@@ -3,20 +3,45 @@
 import React, { useState, useEffect } from 'react'
 import * as XLSX from 'xlsx'
 import { Button } from "@/components/ui/button"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
+import { Table, TableBody, TableHeader, TableRow } from "@/components/ui/table"
 import { importEmployees } from "@/actions/employee-actions"
 import { ImportResult, Mapping } from "@/types/employee"
-import { UploadCloud, RefreshCw, Loader2, Check } from "lucide-react"
-import { cn } from "@/lib/utils"
-
-import { TableContainer } from "@/components/data-table/table-container"
+import { RefreshCw } from "lucide-react"
+import { TableSortHeader } from "@/components/data-table/table-sort-header"
 import { StatusDialog } from "@/components/data-table/status-dialog"
+import { TableData } from "@/components/data-table/table-data"
+import { FileUploadZone } from "@/components/data-table/file-upload-zone"
+import { MappingStepper } from "@/components/data-table/mapping-stepper"
+import { SubmitButton } from "@/components/data-table/submit-button"
+import { parseErrorMessage } from "@/lib/parse-error"
 
 interface ExcelImportProps {
   onFinish: (result: ImportResult) => void
   onDataLoaded: (hasData: boolean) => void
 }
+
+const getDefaultMapping = (): Mapping[] => [
+  { field: "Full Name", index: null },
+  { field: "Office Email", index: null },
+  { field: "Personal Email", index: null },
+  { field: "Gender", index: null },
+  { field: "Birth Date", index: null },
+  { field: "Employee ID (NIK)", index: null },
+  { field: "Join Date", index: null },
+  { field: "Department", index: null }, 
+  { field: "Job Title", index: null },  
+  { field: "Level", index: null },    
+  { field: "Employment Status", index: null }, 
+  { field: "Work Schedule", index: null },
+  { field: "Identity Number (KTP)", index: null },
+  { field: "Tax ID (NPWP)", index: null },
+  { field: "BPJS Kesehatan", index: null },
+  { field: "BPJS Ketenagakerjaan", index: null },
+  { field: "Bank Name", index: null },
+  { field: "Bank Account", index: null },
+  { field: "Account Holder Name", index: null },
+  { field: "PTKP Status", index: null },
+]
 
 export default function ExcelImportSection({ onFinish, onDataLoaded }: ExcelImportProps) {
   const [data, setData] = useState<(string | number)[][]>([])
@@ -28,15 +53,7 @@ export default function ExcelImportSection({ onFinish, onDataLoaded }: ExcelImpo
     open: false, success: false, message: ""
   })
 
-  const [mapping, setMapping] = useState<Mapping[]>([
-    { field: "Full Name", index: null },
-    { field: "Employee ID (NIK)", index: null },
-    { field: "Email", index: null },
-    { field: "Department", index: null },
-    { field: "Job Title", index: null },
-    { field: "Level", index: null },
-    { field: "Status", index: null },
-  ])
+  const [mapping, setMapping] = useState<Mapping[]>(getDefaultMapping)
 
   useEffect(() => {
     onDataLoaded(data.length > 0)
@@ -48,10 +65,15 @@ export default function ExcelImportSection({ onFinish, onDataLoaded }: ExcelImpo
     const reader = new FileReader()
     reader.onload = (evt) => {
       const bstr = evt.target?.result
-      if (!(bstr instanceof ArrayBuffer)) {
-        const wb = XLSX.read(bstr, { type: 'binary' })
+      if (typeof bstr === 'string') {
+        const wb = XLSX.read(bstr, { type: 'binary', cellDates: true }) 
         const ws = wb.Sheets[wb.SheetNames[0]]
-        const rawData = XLSX.utils.sheet_to_json(ws, { header: 1 }) as (string | number)[][]
+        const rawData = XLSX.utils.sheet_to_json(ws, { 
+          header: 1,
+          raw: false, 
+          dateNF: 'yyyy-mm-dd' 
+        }) as (string | number)[][]
+        
         if (rawData.length > 0) {
           setHeaders(rawData[0] as string[])
           setData(rawData.slice(1))
@@ -64,148 +86,144 @@ export default function ExcelImportSection({ onFinish, onDataLoaded }: ExcelImpo
   const handleHeaderClick = (colIndex: number) => {
     if (currentStep >= mapping.length) return
     if (mapping.some(m => m.index === colIndex)) return
+
     const newMapping = [...mapping]
     newMapping[currentStep].index = colIndex
     setMapping(newMapping)
     setCurrentStep(currentStep + 1)
   }
 
+  const handleUnmap = (stepIndex: number) => {
+    const newMapping = mapping.map((m, i) =>
+      i === stepIndex ? { ...m, index: null } : m
+    )
+    setMapping(newMapping)
+    setCurrentStep(stepIndex)
+  }
+
+  const handleResetMapping = () => {
+    setMapping(getDefaultMapping())
+    setCurrentStep(0)
+  }
+
+  const handleChangeFile = () => {
+    setData([])
+    setHeaders([])
+    setCurrentStep(0)
+    setMapping(getDefaultMapping())
+  }
+
   const handleImport = async () => {
     setLoading(true)
     try {
       const result = await importEmployees({ data, mapping }) as ImportResult
-      if (result.success) {
-        setStatus({ open: true, success: true, message: `Successfully imported ${result.count ?? 0} employees!` })
-      } else {
-        setStatus({ open: true, success: false, message: result.error || "Failed to import." })
-      }
+      setStatus({ 
+        open: true, 
+        success: result.success, 
+        message: result.success 
+          ? `Successfully imported ${result.count ?? 0} employees!` 
+          : parseErrorMessage(result.error)
+      })
     } catch (err) {
-      setStatus({ open: true, success: false, message: "Critical error occurred." })
+      setStatus({ 
+        open: true, 
+        success: false, 
+        message: "Something went wrong. Please try again." 
+      })
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="flex flex-col gap-4 pt-2 font-sans h-full max-h-[75vh]">
+    <div className="flex flex-col h-full w-full">
       {!headers.length ? (
-        <label className="flex flex-col items-center justify-center w-full h-52 border-2 border-dashed rounded-2xl cursor-pointer bg-gray-50 hover:bg-gray-100 border-gray-200 transition-colors shadow-none shrink-0">
-          <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center">
-            <div className="p-4 bg-white rounded-full mb-3 border border-gray-100">
-                <UploadCloud className="w-8 h-8 text-[#8B5CF6]" />
-            </div>
-            <p className="mb-1 text-sm text-gray-600 font-bold">Upload your employee list</p>
-            <p className="text-xs text-gray-400">Click to browse (.xlsx or .xls)</p>
-          </div>
-          <input type="file" className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} />
-        </label>
+        <FileUploadZone onFileChange={handleFileUpload} />
       ) : (
         <>
-          <div className="p-4 bg-[#F5F3FF] border border-[#DDD6FE] rounded-xl shrink-0">
-            <div className="flex items-center justify-between mb-3">
-                <h4 className="text-[11px] font-black text-[#7C3AED] uppercase tracking-widest flex items-center gap-2">
-                {currentStep < mapping.length 
-                    ? `Step ${currentStep + 1}: Select Column for ${mapping[currentStep].field}`
-                    : "Ready to process"}
-                </h4>
-                {currentStep === mapping.length && <Badge className="bg-green-500 text-white shadow-none rounded-sm">Validated</Badge>}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {mapping.map((m, i) => (
-                <Badge 
-                  key={i} 
-                  variant="outline"
-                  className={cn(
-                    "text-[10px] px-2.5 py-1 rounded-sm transition-all border-2 shadow-none font-bold",
-                    m.index !== null 
-                      ? "bg-[#8B5CF6] border-[#8B5CF6] text-white" 
-                      : i === currentStep 
-                        ? "border-[#8B5CF6] text-[#8B5CF6] bg-white ring-2 ring-[#F5F3FF]" 
-                        : "bg-white text-gray-300 border-gray-100"
-                  )}
-                >
-                  {m.field} {m.index !== null ? `(Col ${m.index + 1})` : ""}
-                </Badge>
-              ))}
-            </div>
+          <div className="shrink-0 mb-4">
+            <MappingStepper 
+              mapping={mapping} 
+              currentStep={currentStep}
+              onUnmap={handleUnmap}
+            />
           </div>
 
-          <div className="flex-1 min-h-0 -mt-6 flex flex-col overflow-hidden">
-            <TableContainer>
-                <div className={cn(
-                    "overflow-auto w-full h-full max-h-[400px]",
-                    "[&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar]:h-1.5",
-                    "[&::-webkit-scrollbar-track]:bg-transparent",
-                    "[&::-webkit-scrollbar-thumb]:bg-gray-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-gray-300"
-                )}>
-                  <Table className="w-full border-collapse min-w-[1400px]">
-                      <TableHeader className="bg-gray-50 sticky top-0 z-20 border-b">
-                      <TableRow className="hover:bg-transparent border-none">
-                          {headers.map((h, idx) => {
-                          const mapped = mapping.find(m => m.index === idx)
-                          return (
-                              <TableHead 
-                              key={idx} 
-                              className={cn(
-                                  "cursor-pointer border-r last:border-0 h-16 min-w-[180px] transition-colors p-4 relative",
-                                  mapped ? 'bg-[#F5F3FF] text-[#7C3AED]' : 'hover:bg-gray-100'
-                              )}
-                              onClick={() => handleHeaderClick(idx)}
-                              >
-                              <div className="text-[10px] font-bold text-gray-400 uppercase mb-1 truncate">
-                                  {mapped ? `Mapped: ${mapped.field}` : `Column ${idx + 1}`}
-                              </div>
-                              <div className="font-bold text-[13px] truncate text-gray-800">{h || "Untitled"}</div>
-                              {mapped && <div className="absolute top-2 right-2"><Check className="w-3.5 h-3.5 text-[#8B5CF6]" /></div>}
-                              </TableHead>
-                          )
-                          })}
-                      </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                      {data.map((row, i) => (
-                          <TableRow key={i} className="hover:bg-gray-50/50 border-b last:border-0">
-                          {row.map((cell, j) => (
-                              <TableCell key={j} className="text-[12px] py-3.5 px-4 text-gray-600 border-r last:border-0 whitespace-nowrap">
-                              {String(cell ?? "")}
-                              </TableCell>
-                          ))}
-                          </TableRow>
-                      ))}
-                      </TableBody>
-                  </Table>
-                </div>
-            </TableContainer>
+          <div className="flex-1 min-h-0 w-full border border-gray-100 rounded-2xl bg-white overflow-auto custom-scroll shadow-sm">
+            <Table className="min-w-[1600px] relative border-collapse">
+              <TableHeader className="sticky top-0 z-30 bg-gray-50/95 backdrop-blur-sm">
+                <TableRow className="hover:bg-transparent border-b">
+                  {headers.map((h, idx) => {
+                    const mapped = mapping.find(m => m.index === idx)
+                    return (
+                      <TableSortHeader
+                        key={idx}
+                        variant="import"
+                        mapped={!!mapped}
+                        label={h || "Untitled"}
+                        subLabel={mapped ? `Mapped: ${mapped.field}` : `Column ${idx + 1}`}
+                        onClick={() => handleHeaderClick(idx)}
+                        className="min-w-[200px]"
+                      />
+                    )
+                  })}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.map((row, i) => (
+                  <TableRow key={i} className="hover:bg-gray-50/50 border-b border-gray-50 last:border-none">
+                    {row.map((cell, j) => (
+                      <TableData key={j} variant="secondary" className="px-4 py-3 border-r border-gray-50 last:border-none">
+                        {String(cell ?? "")}
+                      </TableData>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
 
-          <div className="flex items-center justify-between pt-4 shrink-0 mt-auto">
+          <div className="shrink-0 flex items-center justify-between pt-6 bg-white z-10">
             <Button 
               variant="ghost" 
-              className="text-gray-400 hover:text-red-500 hover:bg-red-50 text-xs font-bold shadow-none"
-              onClick={() => { setMapping(mapping.map(m => ({ ...m, index: null }))); setCurrentStep(0); }}
+              className="text-gray-400 px-4 h-11 hover:text-[#1E293B] font-bold text-[13px] cursor-pointer"
+              onClick={handleResetMapping}
             >
-              <RefreshCw className="w-3.5 h-3.5 mr-2" /> Reset Mapping
+              <RefreshCw className="w-4 h-4 mr-2" /> Reset Mapping
             </Button>
             
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <Button 
                 variant="outline" 
-                className="cursor-pointer rounded-sm px-6 h-11 font-bold text-xs shadow-none border-gray-200"
-                onClick={() => { setData([]); setHeaders([]); setCurrentStep(0); }}
+                className="rounded-xl px-8 h-11 font-bold text-[13px] border-gray-200 cursor-pointer hover:bg-gray-50"
+                onClick={handleChangeFile}
               >
                 Change File
               </Button>
-              <Button 
-                disabled={currentStep < mapping.length || loading} 
-                onClick={handleImport} 
-                className="bg-[#8B5CF6] hover:bg-[#7C3AED] cursor-pointer text-white px-8 h-11 rounded-sm font-bold shadow-none disabled:opacity-20 transition-all"
-              >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : "Import Employees"}
-              </Button>
+              <SubmitButton 
+                type="button"
+                loading={loading}
+                disabled={currentStep < mapping.length}
+                label="Import Employees"
+                loadingLabel="Importing..."
+                onClick={handleImport}
+                className="w-auto px-10 rounded-xl h-11 shadow-sm font-bold" 
+              />
             </div>
           </div>
         </>
       )}
+
+      <style jsx global>{`
+        .custom-scroll::-webkit-scrollbar:vertical { width: 6px; }
+        .custom-scroll::-webkit-scrollbar:horizontal { height: 4px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: transparent; border-radius: 20px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; border-radius: 20px; }
+        .custom-scroll { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+        .custom-scroll:hover { scrollbar-color: #e2e8f0 transparent; }
+        .custom-scroll:hover::-webkit-scrollbar-thumb { background: #e2e8f0; }
+        .custom-scroll:hover::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
+      `}</style>
 
       <StatusDialog 
         open={status.open}

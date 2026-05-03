@@ -12,6 +12,7 @@ export async function saveManualEmployee(formData: FormData) {
   const jobId = formData.get("jobId") as string
   const jobLevelId = formData.get("jobLevelId") as string
   const employmentTypeId = formData.get("employmentTypeId") as string
+  const workScheduleId = formData.get("workScheduleId") as string
 
   if (!fullName || !employeeId || !jobId || !jobLevelId || !employmentTypeId) {
     return { success: false, error: "Missing required fields." }
@@ -26,6 +27,7 @@ export async function saveManualEmployee(formData: FormData) {
         jobId,
         jobLevelId,
         employmentTypeId,
+        workScheduleId: workScheduleId || null, 
         status: "ACTIVE",
         joinDate: new Date(),
       }
@@ -46,6 +48,7 @@ export async function updateEmployee(id: string, formData: FormData) {
   const jobId = formData.get("jobId") as string
   const jobLevelId = formData.get("jobLevelId") as string
   const employmentTypeId = formData.get("employmentTypeId") as string
+  const workScheduleId = formData.get("workScheduleId") as string
 
   try {
     await prisma.employee.update({
@@ -56,7 +59,8 @@ export async function updateEmployee(id: string, formData: FormData) {
         email,
         jobId,
         jobLevelId,
-        employmentTypeId
+        employmentTypeId,
+        workScheduleId: workScheduleId || null 
       }
     })
 
@@ -84,10 +88,11 @@ export async function importEmployees({
   mapping 
 }: ImportEmployeesPayload): Promise<ImportResult> {
   try {
-    const [masterJobs, masterLevels, masterTypes] = await Promise.all([
+    const [masterJobs, masterLevels, masterTypes, masterSchedules] = await Promise.all([
       prisma.job.findMany(),
       prisma.jobLevel.findMany(),
-      prisma.employmentType.findMany()
+      prisma.employmentType.findMany(),
+      prisma.workSchedule.findMany() 
     ]);
 
     if (masterJobs.length === 0 || masterLevels.length === 0 || masterTypes.length === 0) {
@@ -99,43 +104,54 @@ export async function importEmployees({
     for (const row of data) {
       const getVal = (fieldName: string): string => {
         const m = mapping.find(item => item.field === fieldName);
-        return m?.index !== null ? String(row[m!.index!] ?? "").trim() : "";
+        if (!m || m.index === null || m.index === undefined) return "";
+        
+        const val = row[m.index];
+        return val !== null && val !== undefined ? String(val).trim() : "";
       };
 
       const employeeId = getVal("Employee ID (NIK)");
-      
       if (!employeeId) continue;
 
+      const fullNameExcel = getVal("Full Name");
+      const emailExcel = getVal("Office Email");
       const jobTitleExcel = getVal("Job Title");
       const jobLevelExcel = getVal("Level");
-      const empTypeExcel = getVal("Status");
+      const empTypeExcel = getVal("Employment Status"); 
+      const scheduleExcel = getVal("Work Schedule");
 
       const matchedJob = masterJobs.find(j => j.jobTitle.toLowerCase() === jobTitleExcel.toLowerCase());
       const matchedLevel = masterLevels.find(l => l.levelName.toLowerCase() === jobLevelExcel.toLowerCase());
       const matchedType = masterTypes.find(t => t.name.toLowerCase() === empTypeExcel.toLowerCase());
+      const matchedSchedule = masterSchedules.find(s => s.shiftName.toLowerCase() === scheduleExcel.toLowerCase());
 
       const jobId = matchedJob?.id || masterJobs[0].id;
       const jobLevelId = matchedLevel?.id || masterLevels[0].id;
       const employmentTypeId = matchedType?.id || masterTypes[0].id;
+      const workScheduleId = matchedSchedule?.id || null;
 
       employeesToProcess.push({
         where: { employeeId: employeeId }, 
         update: {
-          fullName: getVal("Full Name"),
-          email: getVal("Email"),
+          fullName: fullNameExcel,
+          email: emailExcel,
+          officeEmail: emailExcel,
           jobId,
           jobLevelId,
           employmentTypeId,
+          workScheduleId
         },
         create: {
-          fullName: getVal("Full Name"),
+          fullName: fullNameExcel,
           employeeId: employeeId,
-          email: getVal("Email"),
+          email: emailExcel,
+          officeEmail: emailExcel,
           status: "ACTIVE",
           joinDate: new Date(),
           jobId,
           jobLevelId,
           employmentTypeId,
+          workScheduleId
         }
       });
     }
@@ -149,6 +165,9 @@ export async function importEmployees({
 
   } catch (error) {
     console.error("Bulk Import Error:", error);
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      return { success: false, error: "Duplicate data found. Check Employee ID or Email unique constraints." };
+    }
     return { 
       success: false, 
       error: error instanceof Error ? error.message : "An unknown error occurred during import." 

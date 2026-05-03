@@ -1,37 +1,43 @@
 import { prisma } from "@/lib/prisma"
-import EmployeeTable from "@/components/employees/EmployeeTable"
+import EmployeesClient from "@/components/employees/EmployeesClient"
+import { EmployeeWithRelations, JobWithDetails } from "@/types/employee"
+import { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "Employees | HRIS Portal",
+}
 
 export default async function EmployeesPage() {
-  const [employees, jobs, levels, employmentTypes] = await Promise.all([
+  const [employees, orgUnits, jobs, jobLevels, employmentTypes, workSchedules] = await Promise.all([
     prisma.employee.findMany({
       include: {
-        job: { 
-          include: { orgUnit: true } 
-        },
+        job: { include: { orgUnit: true } },
         jobLevel: true,
-        employmentType: true 
+        employmentType: true,
+        workSchedule: true,
+        superior: true,
       },
-      orderBy: { joinDate: 'desc' }
+      orderBy: { fullName: "asc" },
     }),
-    prisma.job.findMany({ 
+    prisma.organizationUnit.findMany({ orderBy: { name: "asc" } }),
+    prisma.job.findMany({
       include: { orgUnit: true },
-      orderBy: { jobTitle: 'asc' } 
+      orderBy: { jobTitle: "asc" },
     }),
-    prisma.jobLevel.findMany({ 
-      orderBy: { levelName: 'asc' } 
-    }),
-    prisma.employmentType.findMany({
-      orderBy: { name: 'asc' }
-    })
+    prisma.jobLevel.findMany({ orderBy: { levelName: "asc" } }),
+    prisma.employmentType.findMany({ orderBy: { name: "asc" } }),
+    prisma.workSchedule.findMany({ orderBy: { shiftName: "asc" } }),
   ])
 
   return (
-    <div className="p-8 space-y-6">
-      <EmployeeTable 
-        data={employees} 
-        jobs={jobs}
-        jobLevels={levels}
-        employmentTypes={employmentTypes} 
+    <div className="flex flex-col gap-6 font-poppins">
+      <EmployeesClient
+        data={employees as EmployeeWithRelations[]}
+        orgUnits={orgUnits}
+        jobs={jobs as JobWithDetails[]}
+        jobLevels={jobLevels}
+        employmentTypes={employmentTypes}
+        workSchedules={workSchedules}
       />
     </div>
   )

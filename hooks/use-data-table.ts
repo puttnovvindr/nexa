@@ -7,13 +7,15 @@ interface UseDataTableProps<T, K extends string> {
   searchKey: keyof T
   initialSortKey: K
   itemsPerPage?: number
+  externalSearch?: string 
 }
 
 export function useDataTable<T extends Record<string, unknown>, K extends string>({ 
   data, 
   searchKey, 
   initialSortKey, 
-  itemsPerPage = 5 
+  itemsPerPage = 5,
+  externalSearch, 
 }: UseDataTableProps<T, K>) {
   const [search, setSearch] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
@@ -34,11 +36,13 @@ export function useDataTable<T extends Record<string, unknown>, K extends string
     }))
   }
 
+  const activeSearch = externalSearch !== undefined ? externalSearch : search
+
   const filteredData = useMemo(() => {
-    return [...data]
+    return [...(data || [])]
       .filter((item) => {
         const val = item[searchKey as string]
-        return String(val ?? "").toLowerCase().includes(search.toLowerCase())
+        return String(val ?? "").toLowerCase().includes(activeSearch.toLowerCase())
       })
       .sort((a, b) => {
         let valA = ""
@@ -60,13 +64,13 @@ export function useDataTable<T extends Record<string, unknown>, K extends string
         if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1
         return 0
       })
-  }, [data, search, sortConfig, searchKey])
+  }, [data, activeSearch, sortConfig, searchKey])
 
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage)
+  const totalPages = Math.ceil((filteredData?.length || 0) / itemsPerPage)
 
   const paginatedData = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage
-    return filteredData.slice(start, start + itemsPerPage)
+    return (filteredData || []).slice(start, start + itemsPerPage)
   }, [filteredData, currentPage, itemsPerPage])
 
   return {

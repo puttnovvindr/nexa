@@ -23,7 +23,7 @@ export function TablePagination({ currentPage, totalPages, onPageChange }: Table
           size="sm"
           disabled={currentPage === 1}
           onClick={() => onPageChange(currentPage - 1)}
-          className="h-8 w-8 p-0 rounded-md border-gray-200"
+          className="h-8 w-8 p-0 rounded-md border-gray-200 hover:bg-slate-50 hover:text-[#1E293B] cursor-pointer"
         >
           <ChevronLeft className="w-4 h-4" />
         </Button>
@@ -32,7 +32,7 @@ export function TablePagination({ currentPage, totalPages, onPageChange }: Table
           size="sm"
           disabled={currentPage === totalPages}
           onClick={() => onPageChange(currentPage + 1)}
-          className="h-8 w-8 p-0 rounded-md border-gray-200"
+          className="h-8 w-8 p-0 rounded-md border-gray-200 hover:bg-slate-50 hover:text-[#1E293B] cursor-pointer"
         >
           <ChevronRight className="w-4 h-4" />
         </Button>

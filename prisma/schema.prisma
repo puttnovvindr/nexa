@@ -8,22 +8,24 @@ datasource db {
 }
 
 model Role {
-  id        String   @id @default(cuid())
-  roleName  String   @unique
-  users     User[]
+  id       String @id @default(cuid())
+  roleName String @unique
+  users    User[]
 }
 
 model User {
-  id           String        @id @default(cuid())
-  fullName     String
-  email        String        @unique
-  password     String
-  isActive     Boolean       @default(true)
-  role         Role          @relation(fields: [roleId], references: [id])
-  roleId       String
-  employee     Employee?     @relation(fields: [employeeId], references: [id])
-  employeeId   String?       @unique
-  refreshTokens RefreshToken[]
+  id                String         @id @default(cuid())
+  fullName          String
+  email             String         @unique
+  password          String
+  isActive          Boolean        @default(true)
+  role              Role           @relation(fields: [roleId], references: [id])
+  roleId            String
+  employee          Employee?      @relation(fields: [employeeId], references: [id])
+  employeeId        String?        @unique
+  refreshTokens     RefreshToken[]
+  payrollsProcessed Payroll[]      @relation("PayrollProcessor")
+  approvedLeaves    Leave[]        @relation("LeaveApprover")
 }
 
 model RefreshToken {
@@ -35,152 +37,350 @@ model RefreshToken {
 }
 
 model OrganizationUnit {
-  id                String             @id @default(cuid())
-  name              String
-  type              String            
-  parentId          String?
-  parent            OrganizationUnit?  @relation("OrgHierarchy", fields: [parentId], references: [id])
-  children          OrganizationUnit[] @relation("OrgHierarchy")
-  jobs              Job[]
+  id                 String             @id @default(cuid())
+  name               String
+  type               String
+  parentId           String?
+  parent             OrganizationUnit?  @relation("OrgHierarchy", fields: [parentId], references: [id])
+  children           OrganizationUnit[] @relation("OrgHierarchy")
+  jobs               Job[]
   attendancePolicies AttendancePolicy[]
 }
 
 model Job {
-  id             String           @id @default(cuid())
-  jobTitle       String
-  orgUnit        OrganizationUnit @relation(fields: [orgUnitId], references: [id])
-  orgUnitId      String
-  employees      Employee[]
+  id                  String               @id @default(cuid())
+  jobTitle            String
+  orgUnit             OrganizationUnit     @relation(fields: [orgUnitId], references: [id])
+  orgUnitId           String
+  employees           Employee[]
   scheduleAssignments ScheduleAssignment[]
 }
 
 model JobLevel {
-  id        String   @id @default(cuid())
-  levelName String   @unique
+  id        String     @id @default(cuid())
+  levelName String     @unique
   employees Employee[]
 }
 
 model EmploymentType {
   id        String     @id @default(cuid())
-  name      String     @unique 
+  name      String     @unique
   employees Employee[]
 }
 
-model Employee {
-  id              String       @id @default(cuid())
-  employeeId      String       @unique 
-  fullName        String
-  email           String       @unique
-  joinDate        DateTime
-  status          String    
-  
-  job             Job          @relation(fields: [jobId], references: [id])
-  jobId           String
-  jobLevel        JobLevel     @relation(fields: [jobLevelId], references: [id])
-  jobLevelId      String
-  employmentType   EmploymentType @relation(fields: [employmentTypeId], references: [id])
-  employmentTypeId String
-  superiorId      String?
-  superior        Employee?    @relation("ManagementChain", fields: [superiorId], references: [id])
-  subordinates    Employee[]   @relation("ManagementChain")
-  
-  user            User?
-  customValues    EmployeeCustomValue[]
-  attendanceLogs  AttendanceLog[]
-  absenceRecords  AbsenceRecord[]
-  attendanceSummaries AttendanceSummary[]
-}
-
-model CustomField {
-  id        String   @id @default(cuid())
-  fieldName String
-  fieldType String   
-  values    EmployeeCustomValue[]
-}
-
-model EmployeeCustomValue {
-  id           String      @id @default(cuid())
-  employee     Employee    @relation(fields: [employeeId], references: [id])
-  employeeId   String
-  field        CustomField @relation(fields: [fieldId], references: [id])
-  fieldId      String
-  value        String      @db.Text
-}
-
-model AttendancePolicy {
-  id              String           @id @default(cuid())
-  orgUnit         OrganizationUnit @relation(fields: [orgUnitId], references: [id])
-  orgUnitId       String
-  policyName      String
-  policyType      String           
-  formulaThreshold Int
-  pointImpact     Decimal
-}
-
 model WorkSchedule {
+  id                String               @id @default(cuid())
+  shiftName         String
+  checkInTime       String
+  checkOutTime      String
+  gracePeriod       Int                  @default(0)
+  overtimeThreshold Int                  @default(30)
+  assignments       ScheduleAssignment[]
+  employees         Employee[]
+  attendanceLogs    AttendanceLog[]
+}
+
+model Employee {
   id           String   @id @default(cuid())
-  shiftName    String
-  checkInTime  DateTime
-  checkOutTime DateTime
-  gracePeriod  Int      
-  assignments  ScheduleAssignment[]
+  employeeId   String   @unique
+  fullName     String
+  email        String   @unique
+  officeEmail  String?  @unique
+  joinDate     DateTime
+  isActive     Boolean  @default(true)
+  status       String   @default("ACTIVE")
+
+  identityNumber String? @unique
+  taxId          String? @unique
+  ptkpStatus     String? @default("TK/0")
+
+  bankName        String?
+  bankAccount     String?
+  bankAccountName String?
+
+  bpjsKesehatanNumber       String?
+  bpjsKetenagakerjaanNumber String?
+
+  jobId            String
+  job              Job            @relation(fields: [jobId], references: [id])
+  jobLevelId       String
+  jobLevel         JobLevel       @relation(fields: [jobLevelId], references: [id])
+  employmentTypeId String
+  employmentType   EmploymentType @relation(fields: [employmentTypeId], references: [id])
+
+  user           User?
+  salaryConfig   SalaryConfig?
+  workScheduleId String?
+  workSchedule   WorkSchedule? @relation(fields: [workScheduleId], references: [id])
+
+  attendanceLogs      AttendanceLog[]
+  absenceRecords      AbsenceRecord[]
+  attendanceSummaries AttendanceSummary[]
+  payrolls            Payroll[]
+  leaves              Leave[]
+  leaveBalances       LeaveBalance[]
+  educations          EmployeeEducation[]
+  familyMembers       EmployeeFamily[]
+  documents           EmployeeDocument[]
+
+  superiorId   String?
+  superior     Employee?  @relation("ManagementChain", fields: [superiorId], references: [id])
+  subordinates Employee[] @relation("ManagementChain")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+  updatedBy String?
+}
+
+enum EmploymentBasis {
+  MONTHLY
+  WEEKLY
+  DAILY
+  HOURLY
+}
+
+enum CalculationBase {
+  FIXED
+  PERCENT_BASE
+  PERCENT_GROSS
+  ATTENDANCE_DAYS
+  WORK_HOURS
+  OVERTIME_HOURS
+  LATE_COUNT
+  LATE_MINUTES
+  PERCENT_TOTAL_EARNINGS
+  PERCENT_GROSS_TAXABLE
+  FORMULA
+}
+
+enum DeductionType {
+  PRE_TAX
+  POST_TAX
+}
+
+model PayrollComponentMaster {
+  id            String                 @id @default(cuid())
+  name          String                 @unique
+  category      String
+  base          CalculationBase
+  defaultAmount Decimal                @db.Decimal(12, 2)
+  isTaxable     Boolean                @default(true)
+  isDefault     Boolean                @default(false)
+  deductionType String?
+  description   String?
+  configs       SalaryComponentConfig[]
+  groupName     String?
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+}
+
+model SalaryConfig {
+  id         String                  @id @default(cuid())
+  employeeId String                  @unique
+  employee   Employee                @relation(fields: [employeeId], references: [id])
+  basis      EmploymentBasis         @default(MONTHLY)
+  baseRate   Decimal                 @db.Decimal(12, 2)
+  ptkpStatus String                  @default("TK/0")
+  createdAt  DateTime                @default(now())
+  updatedAt  DateTime                @updatedAt
+  components SalaryComponentConfig[]
+}
+
+model SalaryComponentConfig {
+  id           String                 @id @default(cuid())
+  configId     String
+  config       SalaryConfig           @relation(fields: [configId], references: [id])
+  masterId     String
+  master       PayrollComponentMaster @relation(fields: [masterId], references: [id])
+  customAmount Decimal?               @db.Decimal(12, 2)
+}
+
+model Payroll {
+  id               String            @id @default(cuid())
+  employeeId       String
+  employee         Employee          @relation(fields: [employeeId], references: [id])
+  month            Int
+  year             Int
+  basisSnapshot    EmploymentBasis   @default(MONTHLY)
+  baseRateSnapshot Decimal           @db.Decimal(12, 2)
+  netSalary        Decimal           @db.Decimal(12, 2)
+  status           PayrollStatus     @default(DRAFT)
+  payslipNumber    String?           @unique
+  paidAt           DateTime?
+  processedById    String?
+  processedBy      User?             @relation("PayrollProcessor", fields: [processedById], references: [id])
+  components       PayrollComponent[]
+  createdAt        DateTime          @default(now())
+
+  @@unique([employeeId, month, year])
+}
+
+model PayrollComponent {
+  id        String  @id @default(cuid())
+  payrollId String
+  payroll   Payroll @relation(fields: [payrollId], references: [id])
+  name      String
+  category  String
+  amount    Decimal @db.Decimal(12, 2)
+}
+
+enum PayrollStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  PAID
+}
+
+model PayrollSetting {
+  id          String  @id @default(cuid())
+  key         String  @unique
+  value       String
+  description String?
+}
+
+model HolidayCalendar {
+  id   String   @id @default(cuid())
+  date DateTime @unique
+  name String
+}
+
+model AttendanceLog {
+  id              String    @id @default(cuid())
+  employeeId      String
+  date            DateTime
+  checkIn         DateTime?
+  checkOut        DateTime?
+  status          String
+  overtimeMinutes Int       @default(0)
+  lateMinutes     Int       @default(0)
+  isManual        Boolean   @default(false)
+  notes           String?
+  workScheduleId  String?
+  workSchedule    WorkSchedule? @relation(fields: [workScheduleId], references: [id])
+  employee        Employee      @relation(fields: [employeeId], references: [id])
+
+  @@unique([employeeId, date])
 }
 
 model ScheduleAssignment {
   id             String       @id @default(cuid())
-  job            Job          @relation(fields: [jobId], references: [id])
   jobId          String
-  workSchedule   WorkSchedule @relation(fields: [workScheduleId], references: [id])
+  job            Job          @relation(fields: [jobId], references: [id])
   workScheduleId String
+  workSchedule   WorkSchedule @relation(fields: [workScheduleId], references: [id])
   startDate      DateTime
-  endDate        DateTime?
-}
-
-model AttendanceGrade {
-  id          String   @id @default(cuid())
-  gradeLetter String  
-  minScore    Decimal
-  maxScore    Decimal
-  description String?  @db.Text
-  summaries   AttendanceSummary[]
-}
-
-model AttendancePeriod {
-  id          String   @id @default(cuid())
-  periodName  String
-  startDate   DateTime
-  endDate     DateTime
-  status      String   
-  summaries   AttendanceSummary[]
-}
-
-model AttendanceLog {
-  id         String   @id @default(cuid())
-  employee   Employee @relation(fields: [employeeId], references: [id])
-  employeeId String
-  date       DateTime
-  checkIn    DateTime?
-  checkOut   DateTime?
-  status     String   
 }
 
 model AbsenceRecord {
   id         String   @id @default(cuid())
-  employee   Employee @relation(fields: [employeeId], references: [id])
   employeeId String
-  type       String   
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  type       String
   startDate  DateTime
   endDate    DateTime
   isApproved Boolean  @default(false)
 }
 
 model AttendanceSummary {
-  id                String           @id @default(cuid())
-  employee          Employee         @relation(fields: [employeeId], references: [id])
-  employeeId        String
-  attendancePeriod  AttendancePeriod @relation(fields: [attendancePeriodId], references: [id])
+  id                 String   @id @default(cuid())
+  employeeId         String
+  employee           Employee @relation(fields: [employeeId], references: [id])
   attendancePeriodId String
-  totalScore        Decimal
-  grade             AttendanceGrade  @relation(fields: [gradeId], references: [id])
-  gradeId           String
+  totalScore         Decimal
+}
+
+model AttendancePolicy {
+  id               String           @id @default(cuid())
+  orgUnitId        String
+  orgUnit          OrganizationUnit @relation(fields: [orgUnitId], references: [id])
+  policyName       String
+  policyType       String
+  formulaThreshold Int
+  pointImpact      Decimal
+}
+
+model EmployeeEducation {
+  id          String   @id @default(cuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  institution String
+  major       String?
+  degree      String?
+}
+
+model EmployeeFamily {
+  id           String   @id @default(cuid())
+  employeeId   String
+  employee     Employee @relation(fields: [employeeId], references: [id])
+  name         String
+  relationship String
+}
+
+model EmployeeDocument {
+  id           String   @id @default(cuid())
+  employeeId   String
+  employee     Employee @relation(fields: [employeeId], references: [id])
+  documentType String
+  documentUrl  String
+}
+
+enum LeaveTypeCategory {
+  PAID
+  UNPAID
+  SICK
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model LeaveType {
+  id                 String            @id @default(cuid())
+  name               String            @unique
+  category           LeaveTypeCategory
+  isPaid             Boolean           @default(true)
+  requiresAttachment Boolean           @default(false)
+  defaultQuota       Int               @default(0)
+  durationType       String            @default("FULL")
+  createdAt          DateTime          @default(now())
+  leaves             Leave[]
+  balances           LeaveBalance[]
+}
+
+model Leave {
+  id          String   @id @default(cuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  leaveTypeId String
+  leaveType   LeaveType @relation(fields: [leaveTypeId], references: [id])
+  startDate   DateTime
+  endDate     DateTime
+  duration    Decimal  @db.Decimal(5, 2)
+  status      LeaveStatus @default(PENDING)
+  reason      String?  @db.Text
+  attachmentUrl String?
+  approvedById  String?
+  approvedBy    User?      @relation("LeaveApprover", fields: [approvedById], references: [id])
+  approvedAt    DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model LeaveBalance {
+  id          String    @id @default(cuid())
+  employeeId  String
+  employee    Employee  @relation(fields: [employeeId], references: [id])
+  leaveTypeId String
+  leaveType   LeaveType @relation(fields: [leaveTypeId], references: [id])
+  year        Int
+  entitlement Int
+  taken       Int       @default(0)
+  remaining   Int
+  validFrom   DateTime?
+  validTo     DateTime?
+
+  @@unique([employeeId, leaveTypeId, year])
 }

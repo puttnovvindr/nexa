@@ -1,20 +1,31 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Plus } from "lucide-react"
+import { LucideIcon, Plus } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 interface TableAddButtonProps {
-  onClick: () => void
+  onClick?: () => void 
   label?: string
+  className?: string
+  icon?: LucideIcon 
 }
 
-export function TableAddButton({ onClick, label = "Add New" }: TableAddButtonProps) {
+export function TableAddButton({ 
+  onClick, 
+  label = "Add New", 
+  className,
+  icon: Icon = Plus 
+}: TableAddButtonProps) {
   return (
     <Button 
       onClick={onClick}
-      className="bg-black text-white h-10 px-4 rounded-sm shadow-sm hover:bg-gray-800 transition-all font-sans text-sm font-medium shrink-0"
+      className={cn(
+        "bg-[#7C3AED] text-white h-10 px-4 rounded-sm shadow-sm hover:bg-[#6D28D9] cursor-pointer transition-all font-poppins text-[12px] font-semibold",
+        className
+      )}
     >
-      <Plus className="w-4 h-4 mr-2" /> 
+      <Icon className="w-4 h-4" /> 
       {label}
     </Button>
   )

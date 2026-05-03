@@ -22,11 +22,11 @@ export function TableEmptyState({
             <Inbox className="h-8 w-8 text-gray-300" />
           </div>
           
-          <div className="space-y-1">
-            <p className="text-base font-semibold text-gray-900 font-sans">
+          <div>
+            <p className="text-sm font-semibold text-gray-900 font-poppins tracking-wider">
               {message}
             </p>
-            <p className="text-sm text-gray-500 font-sans max-w-[250px] mx-auto">
+            <p className="text-xs text-gray-500 font-poppins tracking-wider mx-auto">
               {description}
             </p>
           </div>
