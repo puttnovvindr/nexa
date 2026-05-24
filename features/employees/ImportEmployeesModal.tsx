@@ -2,7 +2,6 @@
 
 import { cn } from "@/lib/utils"
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import { UserPlus } from "lucide-react"
 import { EmploymentType, JobLevel, WorkSchedule, OrganizationUnit } from "@prisma/client"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -13,6 +12,7 @@ import { saveManualEmployee } from "@/actions/employee-actions"
 import { JobWithDetails } from "@/types/employee"
 import ManualImportForm from "./ManualImportForm"
 import ExcelImportSection from "./ExcelImportSection"
+import { useCrudHandler } from "@/hooks/use-crud-handler"
 
 interface ImportEmployeeModalProps {
   orgUnits: OrganizationUnit[]
@@ -30,50 +30,29 @@ export default function ImportEmployeeModal({
   workSchedules 
 }: ImportEmployeeModalProps) {
   const [open, setOpen] = useState(false)
-  const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<string>("manual")
   const [hasExcelData, setHasExcelData] = useState(false)
-  
-  const [status, setStatus] = useState({
-    open: false,
-    success: false,
-    message: ""
-  })
 
-  const router = useRouter()
+  const {
+    isPending: loading,
+    statusOpen,
+    statusSuccess,
+    statusMessage,
+    setStatusOpen,
+    handleAction
+  } = useCrudHandler()
 
   const handleManualSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    setLoading(true)
+    const formData = new FormData(e.currentTarget)
     
-    try {
-      const formData = new FormData(e.currentTarget)
-      const result = await saveManualEmployee(formData)
-      
-      if (result.success) {
+    handleAction(
+      saveManualEmployee(formData),
+      "Employee data has been successfully saved to the system.",
+      () => {
         setOpen(false)
-        setStatus({
-          open: true,
-          success: true,
-          message: "Employee data has been successfully saved to the system."
-        })
-        router.refresh()
-      } else {
-        setStatus({
-          open: true,
-          success: false,
-          message: result.error || "Failed to save. Please check if Employee ID or Email already exists."
-        })
       }
-    } catch (error) {
-      setStatus({
-        open: true,
-        success: false,
-        message: "An unexpected error occurred. Please try kembali."
-      })
-    } finally {
-      setLoading(false)
-    }
+    )
   }
 
   return (
@@ -131,17 +110,17 @@ export default function ImportEmployeeModal({
           <TabsContent value="excel" className="flex-1 min-h-0 flex flex-col overflow-hidden mt-0">
             <ExcelImportSection 
               onDataLoaded={setHasExcelData} 
-              onFinish={(res) => { if(res.success) { setOpen(false); router.refresh(); } }} 
+              onFinish={(res) => { if(res.success) { setOpen(false); } }} 
             />
           </TabsContent>
         </Tabs>
       </EntryDialog>
 
       <StatusDialog 
-        open={status.open}
-        success={status.success}
-        message={status.message}
-        onClose={() => setStatus(prev => ({ ...prev, open: false }))}
+        open={statusOpen}
+        success={statusSuccess}
+        message={statusMessage}
+        onClose={() => setStatusOpen(false)}
       />
     </>
   )

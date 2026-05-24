@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma"
-import EmployeesClient from "@/components/employees/EmployeesClient"
+import EmployeesClient from "@/features/employees/EmployeesClient"
 import { EmployeeWithRelations, JobWithDetails } from "@/types/employee"
 import { Metadata } from "next"
 

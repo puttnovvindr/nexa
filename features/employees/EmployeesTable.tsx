@@ -22,6 +22,8 @@ import { Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import ManualImportForm from "./ManualImportForm"
 import { EmployeeDetailSheet } from "./EmployeeDetailSheet"
+import { useSelectionAndBulkAction } from "@/hooks/use-selection-and-bulk-action"
+import { useCrudHandler } from "@/hooks/use-crud-handler"
 
 interface EmployeeTableProps {
   data: EmployeeWithRelations[]
@@ -59,13 +61,8 @@ export default function EmployeeTable({
 }: EmployeeTableProps) {
   const router = useRouter()
   
-  const [selectedIds, setSelectedIds] = useState<string[]>([])
-  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false)
-  const [deleteId, setDeleteId] = useState<string | null>(null)
   const [editingEmployee, setEditingEmployee] = useState<FlattenedEmployee | null>(null)
   const [viewingEmployee, setViewingEmployee] = useState<FlattenedEmployee | null>(null)
-  const [isPending, setIsPending] = useState(false)
-  const [alertConfig, setAlertConfig] = useState({ open: false, success: true, message: "" })
 
   const flattenedData = useMemo(() => {
     return data.map((emp): FlattenedEmployee => ({
@@ -94,23 +91,27 @@ export default function EmployeeTable({
       externalSearch: search, 
   })
 
-  const isAllSelected = paginatedData.length > 0 && selectedIds.length === paginatedData.length
+  const {
+    selectedIds,
+    setSelectedIds,
+    deleteId,
+    setDeleteId,
+    bulkDeleteConfirm,
+    setBulkDeleteConfirm,
+    isAllSelected,
+    handleSelectAll,
+    handleSelectRow,
+    resetSelection
+  } = useSelectionAndBulkAction<FlattenedEmployee>({ data: paginatedData })
 
-  const handleSelectAll = () => {
-    if (isAllSelected) {
-      setSelectedIds([])
-    } else {
-      setSelectedIds(paginatedData.map(emp => emp.id))
-    }
-  }
-
-  const handleSelectRow = (id: string, checked: boolean) => {
-    if (checked) {
-      setSelectedIds(prev => [...prev, id])
-    } else {
-      setSelectedIds(prev => prev.filter(item => item !== id))
-    }
-  }
+  const {
+    isPending,
+    statusOpen,
+    statusSuccess,
+    statusMessage,
+    setStatusOpen,
+    handleAction
+  } = useCrudHandler()
 
   const getStatusColor = (status: string) => {
     const s = status.toLowerCase()
@@ -123,38 +124,26 @@ export default function EmployeeTable({
   const handleEditSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!editingEmployee) return
-    setIsPending(true)
     const formData = new FormData(e.currentTarget)
-    try {
-      const result = await updateEmployee(editingEmployee.id, formData)
-      if (result.success) {
-        setAlertConfig({ open: true, success: true, message: "Employee updated successfully!" })
-        setEditingEmployee(null)
-        router.refresh()
-      } else {
-        setAlertConfig({ open: true, success: false, message: result.error || "Update failed" })
-      }
-    } catch {
-      setAlertConfig({ open: true, success: false, message: "Something went wrong" })
-    } finally { setIsPending(false) }
+    handleAction(
+      updateEmployee(editingEmployee.id, formData),
+      "Employee updated successfully!",
+      () => setEditingEmployee(null)
+    )
   }
 
   const handleDelete = async () => {
     const targetIds = deleteId ? [deleteId] : selectedIds
     if (targetIds.length === 0) return
     
-    setIsPending(true)
-    try {
-      const promises = targetIds.map(id => deleteEmployee(id))
-      await Promise.all(promises)
-      setAlertConfig({ open: true, success: true, message: `${targetIds.length} employee(s) deleted successfully!` })
-      setDeleteId(null)
-      setBulkDeleteConfirm(false)
-      setSelectedIds([])
-      router.refresh()
-    } catch {
-      setAlertConfig({ open: true, success: false, message: "Failed to delete" })
-    } finally { setIsPending(false) }
+    const count = targetIds.length
+    handleAction(
+      Promise.all(targetIds.map(id => deleteEmployee(id))).then(() => ({ success: true })),
+      `${count} employee(s) deleted successfully!`,
+      () => {
+        resetSelection()
+      }
+    )
   }
 
   return (
@@ -213,7 +202,7 @@ export default function EmployeeTable({
                     <input
                       type="checkbox"
                       checked={selectedIds.includes(emp.id)}
-                      onChange={(e) => handleSelectRow(emp.id, e.target.checked)}
+                      onChange={() => handleSelectRow(emp.id)}
                       className="cursor-pointer w-3.5 h-3.5 accent-purple-600"
                     />
                   </TableData>
@@ -303,10 +292,10 @@ export default function EmployeeTable({
       />
       
       <StatusDialog 
-        open={alertConfig.open} 
-        success={alertConfig.success} 
-        message={alertConfig.message} 
-        onClose={() => setAlertConfig(p => ({ ...p, open: false }))} 
+        open={statusOpen} 
+        success={statusSuccess} 
+        message={statusMessage} 
+        onClose={() => setStatusOpen(false)} 
       />
     </div>
   )

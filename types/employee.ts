@@ -39,6 +39,18 @@ export type EmployeeWithRelations = Employee & {
   bpjsKetenagakerjaanNumber?: string | null
   createdBy?: string | null
   updatedBy?: string | null
+  religion?: string | null
+  maritalStatus?: string | null
+  numberOfChildren?: number | null
+  isDisability?: boolean | null
+  citizenship?: string | null
+  passportNumber?: string | null
+  phoneNumber?: string | null
+  emergencyContactName?: string | null
+  emergencyContactPhone?: string | null
+  address?: string | null
+  probationEndDate?: Date | string | null
+  contractEndDate?: Date | string | null
 }
 
 export type EmployeeFormState = {

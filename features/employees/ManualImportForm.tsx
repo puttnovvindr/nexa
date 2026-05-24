@@ -7,6 +7,7 @@ import { JobWithDetails, EmployeeWithRelations, EmployeeFormState } from "@/type
 import { Button } from "@/components/ui/button"
 import { ArrowRight, ArrowLeft, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useMultiStepForm } from "@/hooks/use-multi-step-form"
 
 interface Props {
   orgUnits: OrganizationUnit[] 
@@ -34,9 +35,6 @@ export default function ManualImportForm({
   initialData,
   loading = false
 }: Props) {
-  const [activeStep, setActiveStep] = useState(0)
-  const [touched, setTouched] = useState(false)
-
   const [formData, setFormData] = useState<EmployeeFormState>({
     fullName: initialData?.fullName || "",
     email: initialData?.email || "",
@@ -78,19 +76,24 @@ export default function ManualImportForm({
     employmentTypeId: formData.employmentTypeId === "" ? "Please select type" : null,
   }), [formData])
 
-  const isStepValid = useMemo(() => {
-    if (activeStep === 0) return !errors.fullName && !errors.officeEmail
-    if (activeStep === 1) return !errors.employeeId && !errors.joinDate && !errors.orgUnitId && !errors.jobId && !errors.jobLevelId && !errors.employmentTypeId
+  // Memanfaatkan callback validasi langkah dari hookuseMultiStepForm
+  const validateStep = (step: number): boolean => {
+    if (step === 0) return !errors.fullName && !errors.officeEmail
+    if (step === 1) return !errors.employeeId && !errors.joinDate && !errors.orgUnitId && !errors.jobId && !errors.jobLevelId && !errors.employmentTypeId
     return true
-  }, [activeStep, errors])
+  }
+
+  // Menggunakan useMultiStepForm hook bawaan proyek Anda
+  const {
+    activeStep,
+    touched,
+    nextStep,
+    prevStep,
+  } = useMultiStepForm(STEPS.length, validateStep)
 
   const handleNext = (e: React.MouseEvent) => {
     e.preventDefault()
-    setTouched(true)
-    if (isStepValid && activeStep < STEPS.length - 1) {
-      setActiveStep(prev => prev + 1)
-      setTouched(false)
-    }
+    nextStep()
   }
 
   return (
@@ -187,7 +190,7 @@ export default function ManualImportForm({
       </div>
 
       <div className="flex items-center justify-between mt-8 pt-6 border-t border-slate-100 w-full">
-        <Button type="button" variant="ghost" onClick={() => setActiveStep(v => v - 1)} disabled={activeStep === 0 || loading} className="text-slate-500 font-medium text-[13px] h-10 px-6 hover:bg-slate-50 cursor-pointer">
+        <Button type="button" variant="ghost" onClick={prevStep} disabled={activeStep === 0 || loading} className="text-slate-500 font-medium text-[13px] h-10 px-6 hover:bg-slate-50 cursor-pointer">
           <ArrowLeft className="w-4 h-4 mr-2" /> Back
         </Button>
 

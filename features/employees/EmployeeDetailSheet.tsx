@@ -126,7 +126,7 @@ export function EmployeeDetailSheet({ employee, open, onOpenChange }: EmployeeDe
           <div className="grid grid-cols-3 gap-4 mt-5 pt-5 border-t border-slate-100">
             <div className="flex flex-col gap-0.5">
               <span className="text-[10px] uppercase tracking-widest text-slate-400 font-semibold">Location</span>
-              <span className="text-[12px] font-semibold text-slate-700">{employee.location || "—"}</span>
+              <span className="text-[12px] font-semibold text-slate-700">{employee.job?.orgUnit?.name || "—"}</span>
             </div>
             <div className="flex flex-col gap-0.5">
               <span className="text-[10px] uppercase tracking-widest text-slate-400 font-semibold">Join Date</span>
@@ -151,7 +151,7 @@ export function EmployeeDetailSheet({ employee, open, onOpenChange }: EmployeeDe
               </div>
               <div>
                 <Field label="Marital Status" value={employee.maritalStatus} />
-                <Field label="Children" value={String(employee.numberOfChildren)} />
+                <Field label="Children" value={employee.numberOfChildren !== null && employee.numberOfChildren !== undefined ? String(employee.numberOfChildren) : "0"} />
                 <Field label="Disability" value={employee.isDisability ? "Yes" : "No"} />
               </div>
             </div>
@@ -197,7 +197,10 @@ export function EmployeeDetailSheet({ employee, open, onOpenChange }: EmployeeDe
                 <Field label="Level" value={employee.levelName} />
               </div>
               <div>
-                <Field label="Work Schedule" value={employee.shiftName} />
+                <div className="group flex flex-col gap-0.5 py-3 border-b border-slate-100 last:border-0">
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Work Schedule</span>
+                  <span className="text-[13px] font-medium text-slate-800 mt-0.5">{employee.shiftName || <span className="text-slate-300">—</span>}</span>
+                </div>
                 <Field label="Direct Manager" value={employee.superior?.fullName} />
               </div>
             </div>

@@ -1,7 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from 'react'
-import * as XLSX from 'xlsx'
+import React, { useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableHeader, TableRow } from "@/components/ui/table"
 import { importEmployees } from "@/actions/employee-actions"
@@ -14,6 +13,7 @@ import { FileUploadZone } from "@/components/data-table/file-upload-zone"
 import { MappingStepper } from "@/components/data-table/mapping-stepper"
 import { SubmitButton } from "@/components/data-table/submit-button"
 import { parseErrorMessage } from "@/lib/parse-error"
+import { useExcelImporter } from "@/hooks/use-excel-importer"
 
 interface ExcelImportProps {
   onFinish: (result: ImportResult) => void
@@ -44,17 +44,23 @@ const getDefaultMapping = (): Mapping[] => [
 ]
 
 export default function ExcelImportSection({ onFinish, onDataLoaded }: ExcelImportProps) {
-  const [data, setData] = useState<(string | number)[][]>([])
-  const [headers, setHeaders] = useState<string[]>([])
-  const [loading, setLoading] = useState(false)
-  const [currentStep, setCurrentStep] = useState(0)
-  
-  const [status, setStatus] = useState<{ open: boolean; success: boolean; message: string }>({
-    open: false, success: false, message: ""
-  })
+  // Mengintegrasikan useExcelImporter hook bawaan proyek Anda
+  const {
+    excelData: data,
+    headers,
+    mapping,
+    currentStep,
+    loading,
+    status,
+    processExcelFile,
+    handleHeaderClick,
+    handleUnmap,
+    resetImporter: handleResetMapping,
+    setStatus,
+    setLoading
+  } = useExcelImporter(getDefaultMapping())
 
-  const [mapping, setMapping] = useState<Mapping[]>(getDefaultMapping)
-
+  // Sinkronisasi data loaded ke parent component tetap berjalan aman
   useEffect(() => {
     onDataLoaded(data.length > 0)
   }, [data, onDataLoaded])
@@ -62,61 +68,25 @@ export default function ExcelImportSection({ onFinish, onDataLoaded }: ExcelImpo
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = (evt) => {
-      const bstr = evt.target?.result
-      if (typeof bstr === 'string') {
-        const wb = XLSX.read(bstr, { type: 'binary', cellDates: true }) 
-        const ws = wb.Sheets[wb.SheetNames[0]]
-        const rawData = XLSX.utils.sheet_to_json(ws, { 
-          header: 1,
-          raw: false, 
-          dateNF: 'yyyy-mm-dd' 
-        }) as (string | number)[][]
-        
-        if (rawData.length > 0) {
-          setHeaders(rawData[0] as string[])
-          setData(rawData.slice(1))
-        }
-      }
-    }
-    reader.readAsBinaryString(file)
-  }
-
-  const handleHeaderClick = (colIndex: number) => {
-    if (currentStep >= mapping.length) return
-    if (mapping.some(m => m.index === colIndex)) return
-
-    const newMapping = [...mapping]
-    newMapping[currentStep].index = colIndex
-    setMapping(newMapping)
-    setCurrentStep(currentStep + 1)
-  }
-
-  const handleUnmap = (stepIndex: number) => {
-    const newMapping = mapping.map((m, i) =>
-      i === stepIndex ? { ...m, index: null } : m
-    )
-    setMapping(newMapping)
-    setCurrentStep(stepIndex)
-  }
-
-  const handleResetMapping = () => {
-    setMapping(getDefaultMapping())
-    setCurrentStep(0)
+    // Menyerahkan pemrosesan file XLSX sepenuhnya ke internal hook
+    processExcelFile(file)
   }
 
   const handleChangeFile = () => {
-    setData([])
-    setHeaders([])
-    setCurrentStep(0)
-    setMapping(getDefaultMapping())
+    // Mereset state importer ke kondisi awal saat ganti file
+    handleResetMapping()
   }
 
   const handleImport = async () => {
     setLoading(true)
     try {
-      const result = await importEmployees({ data, mapping }) as ImportResult
+      const validatedData = data as (string | number)[][]
+      
+      const result = await importEmployees({ 
+        data: validatedData, 
+        mapping 
+      }) as ImportResult
+
       setStatus({ 
         open: true, 
         success: result.success, 
