@@ -272,7 +272,7 @@ export default function EmployeeSettingsClient({
             {activeTab === "org" && (
               <aside className="w-[320px] hidden xl:flex flex-col gap-6 pl-4">
                 <OrgUnitDistribution data={units as unknown as OrgWithAnalytics[]} />
-                <OrgUnitInsights data={units as unknown as OrgWithAnalytics[]} />
+                {/* <OrgUnitInsights data={units as unknown as OrgWithAnalytics[]} /> */}
               </aside>
             )}
 

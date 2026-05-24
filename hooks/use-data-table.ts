@@ -47,10 +47,21 @@ export function useDataTable<T extends Record<string, unknown>, K extends string
       .sort((a, b) => {
         let valA = ""
         let valB = ""
-
         const key = sortConfig.key as string
 
-        if (key === "orgUnit") {
+        if (key.includes(".")) {
+          const parts = key.split(".")
+          let currentA: unknown = a
+          let currentB: unknown = b
+          
+          for (const part of parts) {
+            currentA = (currentA as Record<string, unknown>)?.[part]
+            currentB = (currentB as Record<string, unknown>)?.[part]
+          }
+          
+          valA = String(currentA ?? "").toLowerCase()
+          valB = String(currentB ?? "").toLowerCase()
+        } else if (key === "orgUnit") {
           const unitA = a.orgUnit as Record<string, unknown> | undefined
           const unitB = b.orgUnit as Record<string, unknown> | undefined
           valA = String(unitA?.name ?? "").toLowerCase()
