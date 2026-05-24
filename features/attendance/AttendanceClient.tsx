@@ -1,7 +1,6 @@
 "use client"
 
-import { useState, useMemo, useTransition } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useMemo } from "react"
 import { TableSearch } from "@/components/data-table/table-search"
 import { TableFilter } from "@/components/data-table/table-filter"
 import { AttendanceStats } from "./AttendanceStats"
@@ -9,9 +8,6 @@ import AttendanceTable from "./AttendanceTable"
 import AttendanceImportModal from "./AttendanceImportModal"
 import { AttendanceWithEmployee } from "@/types/attendance"
 import { Job, JobLevel, EmploymentType } from "@prisma/client"
-import { ImportResult } from "@/types/leave"
-
-import { toast } from "sonner"
 
 interface AttendanceClientProps {
   data: AttendanceWithEmployee[]
@@ -35,13 +31,8 @@ const ATTENDANCE_STATUS_OPTIONS = [
 
 export default function AttendanceClient({
   data,
-  stats,
 }: AttendanceClientProps) {
-  const router = useRouter()
-  const [isPending, startTransition] = useTransition()
-  
   const [isModalOpen, setIsModalOpen] = useState(false)
-  
   const [search, setSearch] = useState("")
   const [selectedStatus, setSelectedStatus] = useState<string[]>([])
   const [selectedShifts, setSelectedShifts] = useState<string[]>([])
@@ -55,32 +46,6 @@ export default function AttendanceClient({
     })
     return Array.from(unique.entries()).map(([id, label]) => ({ id, label }))
   }, [data])
-
-  const handleManualSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    const formData = new FormData(e.currentTarget)
-    
-    startTransition(async () => {
-      try {
-        setIsModalOpen(false)
-        router.refresh()
-        toast.success("Attendance recorded successfully")
-        // }
-      } catch (error) {
-        toast.error("Failed to record attendance")
-      }
-    })
-  }
-
-  const handleBulkFinish = (result: ImportResult) => {
-    if (result.success) {
-      setIsModalOpen(false)
-      router.refresh()
-      toast.success(result.message || "Bulk import completed")
-    } else {
-      toast.error(result.error || "Import failed")
-    }
-  }
 
   return (
     <div className="flex flex-col gap-6 h-full font-poppins">
@@ -133,9 +98,6 @@ export default function AttendanceClient({
               <AttendanceImportModal 
                 open={isModalOpen}
                 onOpenChange={setIsModalOpen}
-                isPending={isPending}
-                onManualSubmit={handleManualSubmit}
-                onBulkFinish={handleBulkFinish}
               />
             </div>
           </div>

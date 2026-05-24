@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma"
-import AttendanceClient from "@/components/attendance/AttendanceClient"
+import AttendanceClient from "@/features/attendance/AttendanceClient"
 
 export default async function AttendancePage() {
   const [attendance, jobs, jobLevels, employmentTypes] = await Promise.all([

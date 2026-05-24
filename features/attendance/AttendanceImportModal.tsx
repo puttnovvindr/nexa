@@ -6,19 +6,20 @@ import { cn } from "@/lib/utils"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { TableAddButton } from "@/components/data-table/table-add-button"
 import { EntryDialog } from "@/components/data-table/entry-dialog"
-import { AttendanceImportModalProps } from "@/types/attendance"
 import AttendanceManualEntry from "./AttendanceManualEntry"
 import AttendanceImportSection from "./AttendanceImportSection"
+
+interface AttendanceImportModalProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}
 
 export default function AttendanceImportModal({
   open,
   onOpenChange,
-  isPending,
-  onManualSubmit,
-  onBulkFinish,
 }: AttendanceImportModalProps) {
   const [hasExcelData, setHasExcelData] = useState(false)
-  const [activeTab, setActiveTab]       = useState<string>("manual")
+  const [activeTab, setActiveTab] = useState<string>("manual")
 
   const handleOpenChange = (val: boolean) => {
     onOpenChange(val)
@@ -79,9 +80,7 @@ export default function AttendanceImportModal({
             value="manual"
             className="pt-2 px-1 overflow-y-auto min-h-0 flex-1 custom-scroll"
           >
-            <form onSubmit={onManualSubmit} className="space-y-4">
-              <AttendanceManualEntry loading={isPending} />
-            </form>
+            <AttendanceManualEntry onSuccess={() => handleOpenChange(false)} />
           </TabsContent>
 
           <TabsContent
@@ -90,7 +89,7 @@ export default function AttendanceImportModal({
           >
             <AttendanceImportSection
               onDataLoaded={setHasExcelData}
-              onFinish={onBulkFinish}
+              onFinish={() => handleOpenChange(false)}
             />
           </TabsContent>
         </Tabs>

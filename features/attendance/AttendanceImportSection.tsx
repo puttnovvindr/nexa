@@ -1,7 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
-import * as XLSX from "xlsx"
+import React, { useEffect } from "react"
 import { RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableHeader, TableRow } from "@/components/ui/table"
@@ -15,6 +14,7 @@ import { StatusDialog } from "@/components/data-table/status-dialog"
 import { parseErrorMessage } from "@/lib/parse-error"
 
 import { importAttendance } from "@/actions/attendance-actions"
+import { useExcelImporter } from "@/hooks/use-excel-importer"
 import {
   AttendanceImportSectionProps,
   AttendanceMapping,
@@ -34,87 +34,40 @@ const ATTENDANCE_IMPORT_FIELDS: FieldDef[] = [
   { field: "Clock Out (HH:mm)",  label: "Clock Out (HH:mm)",  required: false },
 ]
 
-const getDefaultMapping = (): AttendanceMapping[] =>
-  ATTENDANCE_IMPORT_FIELDS.map((f) => ({ field: f.field, index: null }))
+const INITIAL_MAPPING: AttendanceMapping[] = ATTENDANCE_IMPORT_FIELDS.map((f) => ({
+  field: f.field,
+  index: null,
+}))
 
 export default function AttendanceImportSection({
   onFinish,
   onDataLoaded,
 }: AttendanceImportSectionProps) {
-  const [data, setData] = useState<(string | number | Date)[][]>([])
-  const [headers, setHeaders] = useState<string[]>([])
-  const [loading, setLoading] = useState(false)
-  const [currentStep, setCurrentStep] = useState(0)
-  const [mapping, setMapping] = useState<AttendanceMapping[]>(getDefaultMapping)
+  const {
+    excelData,
+    headers,
+    mapping,
+    currentStep,
+    loading,
+    status,
+    processExcelFile,
+    handleHeaderClick,
+    handleUnmap,
+    resetImporter,
+    setLoading,
+    setStatus,
+  } = useExcelImporter(INITIAL_MAPPING)
 
-  const [status, setStatus] = useState<{
-    open: boolean
-    success: boolean
-    message: string
-  }>({ open: false, success: false, message: "" })
+  const hasData = headers.length > 0
 
   useEffect(() => {
-    onDataLoaded(data.length > 0)
-  }, [data, onDataLoaded])
+    onDataLoaded(hasData)
+  }, [hasData, onDataLoaded])
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-
-    const reader = new FileReader()
-    reader.onload = (evt) => {
-      const bstr = evt.target?.result
-      if (!(bstr instanceof ArrayBuffer)) return
-
-      const wb = XLSX.read(bstr, { type: "array", cellDates: true })
-      const ws = wb.Sheets[wb.SheetNames[0]]
-      const rawData = XLSX.utils.sheet_to_json(ws, {
-        header: 1,
-        raw: true,
-        defval: null
-      }) as (string | number | Date)[][]
-
-      if (rawData.length > 0) {
-        setHeaders(rawData[0] as string[])
-        setData(rawData.slice(1))
-      }
-    }
-    reader.readAsArrayBuffer(file)
-  }
-
-  const handleHeaderClick = (colIndex: number) => {
-    if (currentStep >= mapping.length) return
-    if (mapping.some((m) => m.index === colIndex)) return
-
-    const updated = [...mapping]
-    updated[currentStep] = { ...updated[currentStep], index: colIndex }
-    setMapping(updated)
-
-    const nextStep = updated.findIndex((m, idx) => idx > currentStep && m.index === null)
-    if (nextStep !== -1) {
-      setCurrentStep(nextStep)
-    } else {
-      setCurrentStep(mapping.length) 
-    }
-  }
-
-  const handleUnmap = (stepIndex: number) => {
-    setMapping((prev) =>
-      prev.map((m, i) => (i === stepIndex ? { ...m, index: null } : m))
-    )
-    setCurrentStep(stepIndex)
-  }
-
-  const handleResetMapping = () => {
-    setMapping(getDefaultMapping())
-    setCurrentStep(0)
-  }
-
-  const handleChangeFile = () => {
-    setData([])
-    setHeaders([])
-    setCurrentStep(0)
-    setMapping(getDefaultMapping())
+    processExcelFile(file)
   }
 
   const allRequiredMapped = ATTENDANCE_IMPORT_FIELDS.filter((f) => f.required).every(
@@ -124,7 +77,10 @@ export default function AttendanceImportSection({
   const handleImport = async () => {
     setLoading(true)
     try {
-      const result = await importAttendance({ data, mapping })
+      const result = await importAttendance({ 
+        data: excelData as (string | number | Date)[][], 
+        mapping: mapping as AttendanceMapping[] 
+      })
       setStatus({
         open: true,
         success: result.success,
@@ -145,13 +101,13 @@ export default function AttendanceImportSection({
 
   return (
     <div className="flex flex-col h-full w-full">
-      {!headers.length ? (
+      {!hasData ? (
         <FileUploadZone onFileChange={handleFileUpload} />
       ) : (
         <>
           <div className="shrink-0 mb-4">
             <MappingStepper
-              mapping={mapping}
+              mapping={mapping as AttendanceMapping[]}
               currentStep={currentStep}
               onUnmap={handleUnmap}
             />
@@ -182,7 +138,7 @@ export default function AttendanceImportSection({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.slice(0, 50).map((row, i) => (
+                {excelData.slice(0, 50).map((row, i) => (
                   <TableRow
                     key={i}
                     className="hover:bg-gray-50/50 border-b border-gray-50 last:border-none"
@@ -208,7 +164,7 @@ export default function AttendanceImportSection({
             <Button
               variant="ghost"
               className="text-gray-400 px-4 h-11 hover:text-[#1E293B] font-bold text-[13px] cursor-pointer"
-              onClick={handleResetMapping}
+              onClick={resetImporter}
             >
               <RefreshCw className="w-4 h-4 mr-2" />
               Reset Mapping
@@ -218,7 +174,7 @@ export default function AttendanceImportSection({
               <Button
                 variant="outline"
                 className="rounded-xl px-8 h-11 font-bold text-[13px] border-gray-200 cursor-pointer hover:bg-gray-50"
-                onClick={handleChangeFile}
+                onClick={resetImporter}
               >
                 Change File
               </Button>
