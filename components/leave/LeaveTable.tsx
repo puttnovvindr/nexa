@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useTransition } from 'react'
 import { useRouter } from "next/navigation"
 import { useDataTable } from "@/hooks/use-data-table"
+import { useCrudHandler } from "@/hooks/use-crud-handler"
 import { TablePagination } from "@/components/data-table/table-pagination"
 import { StatusDialog } from "@/components/data-table/status-dialog"
 import { DeleteConfirm } from "@/components/data-table/delete-confirm"
@@ -24,7 +25,7 @@ interface LeaveTableProps {
   search: string
   selectedStatus: string[]
   onEdit: (item: Leave) => void
-  onDelete: (id: string) => void
+  onDelete: (id: string | string[]) => void
 }
 
 interface FlattenedLeave extends Omit<Leave, 'startDate' | 'endDate'> {
@@ -49,7 +50,15 @@ export default function LeaveTable({
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
-  const [alertConfig, setAlertConfig] = useState({ open: false, success: true, message: "" })
+
+  const {
+    isPending: isCrudPending,
+    statusOpen,
+    statusSuccess,
+    statusMessage,
+    setStatusOpen,
+    handleAction,
+  } = useCrudHandler()
 
   const filteredAndFlattenedData = useMemo(() => {
     return data
@@ -74,17 +83,26 @@ export default function LeaveTable({
   })
 
   const handleUpdateStatus = (id: string, status: "APPROVED" | "REJECTED") => {
+    handleAction(
+      updateLeaveStatus({ id, status }),
+      `Leave request has been ${status.toLowerCase()} successfully!`,
+      () => router.refresh()
+    )
+  }
+
+  const handleDeleteConfirm = () => {
     startTransition(async () => {
       try {
-        const res = await updateLeaveStatus({ id, status })
-        if (res.success) {
-          setAlertConfig({ open: true, success: true, message: `Leave ${status.toLowerCase()} successfully!` })
-          router.refresh()
-        } else {
-          setAlertConfig({ open: true, success: false, message: res.message || "Failed to update status" })
+        if (deleteId) {
+          await onDelete(deleteId)
+          setDeleteId(null)
+        } else if (bulkDeleteConfirm) {
+          await onDelete(selectedIds)
+          setSelectedIds([])
+          setBulkDeleteConfirm(false)
         }
       } catch {
-        setAlertConfig({ open: true, success: false, message: "Something went wrong" })
+        return
       }
     })
   }
@@ -114,7 +132,7 @@ export default function LeaveTable({
             {selectedIds.length} requests selected
           </span>
           <Button 
-            variant="destructive" size="sm" className="rounded-sm text-[12px] font-semibold"
+            variant="destructive" size="sm" className="rounded-xl text-[12px] font-semibold cursor-pointer shadow-sm"
             onClick={() => setBulkDeleteConfirm(true)}
           >
             <Trash2 className="w-4 h-4 mr-2" />
@@ -175,14 +193,14 @@ export default function LeaveTable({
                           <Button 
                             variant="ghost" size="icon" className="h-8 w-8 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer"
                             onClick={() => handleUpdateStatus(leave.id, "APPROVED")}
-                            disabled={isPending}
+                            disabled={isPending || isCrudPending}
                           >
                             <Check className="w-4 h-4" />
                           </Button>
                           <Button 
                             variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700 cursor-pointer"
                             onClick={() => handleUpdateStatus(leave.id, "REJECTED")}
-                            disabled={isPending}
+                            disabled={isPending || isCrudPending}
                           >
                             <X className="w-4 h-4" />
                           </Button>
@@ -191,7 +209,7 @@ export default function LeaveTable({
 
                       <TableRowActions 
                         onEdit={() => onEdit(leave)} 
-                        onDelete={() => onDelete(leave.id)}
+                        onDelete={() => setDeleteId(leave.id)}
                         editDisabled={leave.status !== "PENDING"}
                         deleteDisabled={leave.status !== "PENDING"}
                       />
@@ -210,17 +228,14 @@ export default function LeaveTable({
         open={!!deleteId || bulkDeleteConfirm} 
         onOpenChange={(v) => { if(!v) { setDeleteId(null); setBulkDeleteConfirm(false); } }} 
         isPending={isPending} 
-        onConfirm={() => {
-          const ids = deleteId ? [deleteId] : selectedIds
-          onDelete(ids[0]) 
-        }} 
+        onConfirm={handleDeleteConfirm} 
       />
       
       <StatusDialog 
-        open={alertConfig.open} 
-        success={alertConfig.success} 
-        message={alertConfig.message} 
-        onClose={() => setAlertConfig(p => ({ ...p, open: false }))} 
+        open={statusOpen} 
+        success={statusSuccess} 
+        message={statusMessage} 
+        onClose={() => setStatusOpen(false)} 
       />
     </div>
   )

@@ -6,13 +6,9 @@ import { ClipboardList } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { TableAddButton } from "@/components/data-table/table-add-button"
 import { EntryDialog } from "@/components/data-table/entry-dialog"
-import { StatusDialog } from "@/components/data-table/status-dialog"
-import { SubmitButton } from "@/components/data-table/submit-button"
-import { createLeave } from "@/actions/leave-actions"
 import { LeaveType, ImportResult } from "@/types/leave"
 import LeaveManualEntry from "./LeaveManualEntry"
 import LeaveExcelImportSection from "./LeaveExcelImportSection"
-import { useRouter } from "next/navigation"
 
 interface LeaveImportModalProps {
   leaveTypes: LeaveType[]
@@ -20,65 +16,20 @@ interface LeaveImportModalProps {
 
 export default function LeaveImportModal({ leaveTypes }: LeaveImportModalProps) {
   const [open, setOpen] = useState(false)
-  const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<string>("manual")
   const [hasExcelData, setHasExcelData] = useState(false)
 
-  const [status, setStatus] = useState({
-    open: false,
-    success: false,
-    message: "",
-  })
-
-  const router = useRouter()
-
-  const handleManualSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    setLoading(true)
-
-    try {
-      const formData = new FormData(e.currentTarget)
-
-      const rawData = {
-        employeeId: formData.get("employeeId") as string,
-        leaveTypeId: formData.get("leaveTypeId") as string,
-        startDate: formData.get("startDate") as string,
-        endDate: formData.get("endDate") as string,
-        reason: (formData.get("reason") as string) ?? undefined,
-      }
-
-      const result = await createLeave(rawData)
-
-      if (result.success) {
-        setOpen(false)
-        setStatus({
-          open: true,
-          success: true,
-          message: "Leave request has been successfully submitted.",
-        })
-        router.refresh()
-      } else {
-        setStatus({
-          open: true,
-          success: false,
-          message: result.message ?? "Failed to submit leave request. Please try again.",
-        })
-      }
-    } catch {
-      setStatus({
-        open: true,
-        success: false,
-        message: "An unexpected error occurred. Please try again.",
-      })
-    } finally {
-      setLoading(false)
+  const handleOpenChange = (val: boolean) => {
+    setOpen(val)
+    if (!val) {
+      setHasExcelData(false)
+      setActiveTab("manual")
     }
   }
 
   const handleExcelFinish = (res: ImportResult) => {
     if (res.success) {
-      setOpen(false)
-      router.refresh()
+      handleOpenChange(false)
     }
   }
 
@@ -92,13 +43,7 @@ export default function LeaveImportModal({ leaveTypes }: LeaveImportModalProps) 
 
       <EntryDialog
         open={open}
-        onOpenChange={(v) => {
-          setOpen(v)
-          if (!v) {
-            setHasExcelData(false)
-            setActiveTab("manual")
-          }
-        }}
+        onOpenChange={handleOpenChange}
         title="Add New Leave Request"
         description={
           hasExcelData
@@ -139,15 +84,11 @@ export default function LeaveImportModal({ leaveTypes }: LeaveImportModalProps) 
             value="manual"
             className="pt-2 px-1 overflow-y-auto min-h-0 flex-1 custom-scroll"
           >
-            <form onSubmit={handleManualSubmit} className="space-y-4">
-              <LeaveManualEntry leaveTypes={leaveTypes} />
-              <SubmitButton
-                loading={loading}
-                label="Save Leave"
-                loadingLabel="Saving..."
-                className="rounded-xl h-11 w-full"
-              />
-            </form>
+
+            <LeaveManualEntry 
+              leaveTypes={leaveTypes} 
+              onSuccess={() => handleOpenChange(false)} 
+            />
           </TabsContent>
 
           <TabsContent
@@ -161,13 +102,6 @@ export default function LeaveImportModal({ leaveTypes }: LeaveImportModalProps) 
           </TabsContent>
         </Tabs>
       </EntryDialog>
-
-      <StatusDialog
-        open={status.open}
-        success={status.success}
-        message={status.message}
-        onClose={() => setStatus((prev) => ({ ...prev, open: false }))}
-      />
     </>
   )
 }
