@@ -1,18 +1,15 @@
 "use client"
 
-import { cn } from "@/lib/utils"
 import { useState } from "react"
 import { UserPlus } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { EmploymentType, JobLevel, WorkSchedule, OrganizationUnit } from "@prisma/client"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { TableAddButton } from "@/components/data-table/table-add-button"
 import { EntryDialog } from "@/components/data-table/entry-dialog"
-import { StatusDialog } from "@/components/data-table/status-dialog" 
-import { saveManualEmployee } from "@/actions/employee-actions"
 import { JobWithDetails } from "@/types/employee"
 import ManualImportForm from "./ManualImportForm"
 import ExcelImportSection from "./ExcelImportSection"
-import { useCrudHandler } from "@/hooks/use-crud-handler"
 
 interface ImportEmployeeModalProps {
   orgUnits: OrganizationUnit[]
@@ -33,95 +30,86 @@ export default function ImportEmployeeModal({
   const [activeTab, setActiveTab] = useState<string>("manual")
   const [hasExcelData, setHasExcelData] = useState(false)
 
-  const {
-    isPending: loading,
-    statusOpen,
-    statusSuccess,
-    statusMessage,
-    setStatusOpen,
-    handleAction
-  } = useCrudHandler()
-
-  const handleManualSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    const formData = new FormData(e.currentTarget)
-    
-    handleAction(
-      saveManualEmployee(formData),
-      "Employee data has been successfully saved to the system.",
-      () => {
-        setOpen(false)
-      }
-    )
+  const handleOpenChange = (val: boolean) => {
+    setOpen(val)
+    if (!val) {
+      setHasExcelData(false)
+      setActiveTab("manual")
+    }
   }
 
   return (
     <>
-      <TableAddButton 
-        label="Add Employee" 
-        icon={UserPlus} 
+      <TableAddButton
+        label="Import Employee"
+        icon={UserPlus}
         onClick={() => setOpen(true)}
       />
 
       <EntryDialog
         open={open}
-        onOpenChange={(v) => {
-          setOpen(v)
-          if (!v) { 
-            setHasExcelData(false)
-            setActiveTab("manual")
-          }
-        }}
-        title="Add New Employee"
-        description={hasExcelData ? "Map your excel columns to employee fields" : "Add employee manually or bulk upload via excel file"}
+        onOpenChange={handleOpenChange}
+        title="Manage Employee"
+        description={
+          hasExcelData
+            ? "Petakan kolom Excel Anda ke dalam field data karyawan"
+            : "Tambah data karyawan secara manual atau unggah massal melalui Excel"
+        }
         showFooter={false}
         className={cn(
-          "transition-all duration-300 ease-in-out font-poppins",
-          activeTab === "excel" && hasExcelData 
-            ? "max-w-[95vw] lg:max-w-[1250px] h-[92vh] p-6"
-            : "max-w-lg p-10" 
+          "transition-all duration-300 ease-in-out font-poppins flex flex-col items-stretch justify-start outline-none overflow-hidden",
+          activeTab === "excel" && hasExcelData
+            ? "max-w-7xl lg:max-w-[1250px] h-[92vh] p-6"
+            : "max-w-lg p-10"
         )}
       >
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full h-full flex flex-col min-h-0">
+        <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="w-full h-full flex flex-col min-h-0"
+        >
           <div className="shrink-0 mb-2">
-            <TabsList className="grid w-full grid-cols-2 bg-gray-100/80 p-1 rounded-xl shadow-none">
-              <TabsTrigger value="manual" className="rounded-xl font-semibold tracking-wider text-[12px] cursor-pointer">
+            <TabsList className="grid w-full grid-cols-2 bg-gray-100/80 p-1 rounded-xl shadow-none border-none">
+              <TabsTrigger 
+                value="manual" 
+                className="rounded-xl font-semibold tracking-wider text-[12px] cursor-pointer"
+              >
                 Manual Input
               </TabsTrigger>
-              <TabsTrigger value="excel" className="rounded-xl font-semibold tracking-wider text-[12px] cursor-pointer">
+              <TabsTrigger 
+                value="excel" 
+                className="rounded-xl font-semibold tracking-wider text-[12px] cursor-pointer"
+              >
                 Bulk Upload
               </TabsTrigger>
             </TabsList>
           </div>
           
-          <TabsContent value="manual" className="pt-2 px-1 overflow-y-auto min-h-0 flex-1 custom-scroll">
-            <form onSubmit={handleManualSubmit} className="space-y-4">
-              <ManualImportForm 
-                orgUnits={orgUnits} 
-                jobs={jobs} 
-                jobLevels={jobLevels} 
-                employmentTypes={employmentTypes} 
-                workSchedules={workSchedules}
-                loading={loading}
-              />
-            </form>
+          <TabsContent 
+            value="manual" 
+            className="pt-2 px-1 overflow-y-auto min-h-0 flex-1 custom-scroll"
+          >
+            <ManualImportForm 
+              orgUnits={orgUnits} 
+              jobs={jobs} 
+              jobLevels={jobLevels} 
+              employmentTypes={employmentTypes} 
+              workSchedules={workSchedules}
+              onSuccess={() => handleOpenChange(false)}
+            />
           </TabsContent>
           
-          <TabsContent value="excel" className="flex-1 min-h-0 flex flex-col overflow-hidden mt-0">
+          <TabsContent 
+            value="excel" 
+            className="flex-1 min-h-0 flex flex-col overflow-hidden mt-0 outline-none"
+          >
             <ExcelImportSection 
               onDataLoaded={setHasExcelData} 
-              onFinish={(res) => { if(res.success) { setOpen(false); } }} 
+              onFinish={() => handleOpenChange(false)} 
             />
           </TabsContent>
         </Tabs>
       </EntryDialog>
-
-      <StatusDialog 
-        open={statusOpen}
-        success={statusSuccess}
-        message={statusMessage}
-        onClose={() => setStatusOpen(false)}
-      />
     </>
   )
 }

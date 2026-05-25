@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react'
 import { useRouter } from "next/navigation"
-import { deleteEmployee, updateEmployee } from "@/actions/employee-actions"
+import { deleteEmployee } from "@/actions/employee-actions" 
 import { EmployeeWithRelations, JobWithDetails } from "@/types/employee"
 import { EmploymentType, JobLevel, WorkSchedule, OrganizationUnit } from "@prisma/client" 
 import { useDataTable } from "@/hooks/use-data-table"
@@ -119,17 +119,6 @@ export default function EmployeeTable({
     if (s.includes('contract')) return "bg-amber-50 text-amber-700 border-amber-100"
     if (s.includes('probation')) return "bg-blue-50 text-blue-700 border-blue-100"
     return "bg-slate-50 text-slate-700 border-slate-100"
-  }
-
-  const handleEditSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    if (!editingEmployee) return
-    const formData = new FormData(e.currentTarget)
-    handleAction(
-      updateEmployee(editingEmployee.id, formData),
-      "Employee updated successfully!",
-      () => setEditingEmployee(null)
-    )
   }
 
   const handleDelete = async () => {
@@ -260,8 +249,6 @@ export default function EmployeeTable({
         open={!!editingEmployee}
         onOpenChange={(v) => !v && setEditingEmployee(null)}
         title="Edit Employee Information"
-        onSubmit={handleEditSubmit} 
-        isPending={isPending}
         showFooter={false} 
       >
         <ManualImportForm 
@@ -271,7 +258,7 @@ export default function EmployeeTable({
           employmentTypes={employmentTypes} 
           workSchedules={workSchedules}
           initialData={editingEmployee} 
-          loading={isPending}
+          onSuccess={() => setEditingEmployee(null)} 
         />
       </EntryDialog>
 
@@ -290,7 +277,7 @@ export default function EmployeeTable({
         description="Are you sure you want to delete all selected employees? This action cannot be undone."
         onConfirm={handleDelete} 
       />
-      
+ 
       <StatusDialog 
         open={statusOpen} 
         success={statusSuccess} 
