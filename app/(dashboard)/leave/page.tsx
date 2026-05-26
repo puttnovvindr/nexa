@@ -1,4 +1,4 @@
-import LeaveClient from "@/components/leave/LeaveClient"
+import LeaveClient from "@/features/leave/LeaveClient"
 import { getLeaveData } from "@/actions/leave-actions"
 import { prisma } from "@/lib/prisma"
 

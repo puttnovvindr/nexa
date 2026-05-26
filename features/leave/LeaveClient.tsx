@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import React, { useState } from "react"
 import Link from "next/link"
 import { Settings2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -25,6 +25,25 @@ const LEAVE_STATUS_OPTIONS = [
 export default function LeaveClient({ data, leaveTypes, currentEmployeeId }: LeaveClientProps) {
   const [search, setSearch] = useState("")
   const [selectedStatus, setSelectedStatus] = useState<string[]>([])
+  const [isFormOpen, setIsFormOpen] = useState(false)
+  const [editingLeave, setEditingLeave] = useState<Leave | null>(null)
+
+  const handleEdit = (item: Leave) => {
+    setEditingLeave(item)
+    setIsFormOpen(true)
+  }
+
+  const handleDelete = async (id: string | string[]) => {
+    try {
+      if (Array.isArray(id)) {
+        return
+      } else {
+        return
+      }
+    } catch {
+      return
+    }
+  }
 
   return (
     <div className="flex flex-col gap-6 h-full font-poppins">
@@ -81,6 +100,8 @@ export default function LeaveClient({ data, leaveTypes, currentEmployeeId }: Lea
               data={data}
               search={search}
               selectedStatus={selectedStatus}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
             />
           </div>
         </div>
