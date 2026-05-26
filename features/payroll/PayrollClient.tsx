@@ -6,10 +6,10 @@ import Link from "next/link"
 import {
   updateSalaryConfig,
   deletePayroll,
-  updatePayrollStatus,
 } from "@/actions/payroll-actions"
 import { PayrollTableProps, FlattenedPayroll, SerializedPayroll } from "@/types/payroll"
 import { useDataTable } from "@/hooks/use-data-table"
+import { useCrudHandler } from "@/hooks/use-crud-handler"
 import { EntryDialog } from "@/components/data-table/entry-dialog"
 import { StatusDialog } from "@/components/data-table/status-dialog"
 import { DeleteConfirm } from "@/components/data-table/delete-confirm"
@@ -67,14 +67,21 @@ export default function PayrollClient({ data }: PayrollTableProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [editingConfig, setEditingConfig] = useState<FlattenedPayroll | null>(null)
   const [viewingPayroll, setViewingPayroll] = useState<FlattenedPayroll | null>(null)
-  const [isPending, setIsPending] = useState(false)
-  const [alertConfig, setAlertConfig] = useState({ open: false, success: true, message: "" })
 
   const [search, setSearch] = useState("")
   const [selectedStatus, setSelectedStatus] = useState<string[]>([])
   const [month, setMonth] = useState<string>("")
   const [year, setYear] = useState<string>("")
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+
+  const {
+    isPending,
+    statusOpen,
+    statusSuccess,
+    statusMessage,
+    setStatusOpen,
+    handleAction,
+  } = useCrudHandler()
 
   const flattenedData = useMemo((): FlattenedPayroll[] =>
     data.map((item) => {
@@ -102,18 +109,6 @@ export default function PayrollClient({ data }: PayrollTableProps) {
     [data]
   )
 
-  const stats = useMemo(
-    () => ({
-      total: flattenedData.length,
-      paid: flattenedData.filter((d) => d.status === PayrollStatus.PAID).length,
-      pending: flattenedData.filter((d) => d.status === PayrollStatus.PENDING).length,
-      approved: flattenedData.filter((d) => d.status === PayrollStatus.APPROVED).length,
-      draft: flattenedData.filter((d) => d.status === PayrollStatus.DRAFT).length,
-      anomalies: flattenedData.filter((d) => d.isAnomaly).length,
-    }),
-    [flattenedData]
-  )
-
   const filteredData = useMemo(
     () =>
       flattenedData.filter(
@@ -135,42 +130,29 @@ export default function PayrollClient({ data }: PayrollTableProps) {
 
   const handleUpdateConfig = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    setIsPending(true)
-    try {
-      const res = await updateSalaryConfig(new FormData(e.currentTarget))
-      if (res.success) {
-        setAlertConfig({ open: true, success: true, message: "Salary config updated successfully!" })
+    const formData = new FormData(e.currentTarget)
+    
+    await handleAction(
+      updateSalaryConfig(formData),
+      "Salary config updated successfully!",
+      () => {
         setEditingConfig(null)
         router.refresh()
-      } else {
-        throw new Error(res.error || "Update failed")
       }
-    } catch (err) {
-      setAlertConfig({
-        open: true,
-        success: false,
-        message: err instanceof Error ? err.message : "An error occurred",
-      })
-    } finally {
-      setIsPending(false)
-    }
+    )
   }
 
   const handleDelete = async () => {
     if (!deleteId) return
-    setIsPending(true)
-    try {
-      const result = await deletePayroll(deleteId)
-      if (result.success) {
-        setAlertConfig({ open: true, success: true, message: "Record deleted successfully!" })
+    
+    await handleAction(
+      deletePayroll(deleteId),
+      "Record deleted successfully!",
+      () => {
         setDeleteId(null)
         router.refresh()
       }
-    } catch {
-      setAlertConfig({ open: true, success: false, message: "Failed to delete record" })
-    } finally {
-      setIsPending(false)
-    }
+    )
   }
 
   return (
@@ -193,7 +175,7 @@ export default function PayrollClient({ data }: PayrollTableProps) {
           <div className="flex-1 min-w-0 flex flex-col space-y-6 overflow-hidden">
 
             <div className="shrink-0 space-y-4">
-              <PayrollStats {...stats} />
+              <PayrollStats data={flattenedData} />
               <div className="flex items-center justify-between gap-4">
                 <PayrollBulkActions
                   selectedIds={selectedIds}
@@ -243,7 +225,7 @@ export default function PayrollClient({ data }: PayrollTableProps) {
                 <Link href="/payroll/settings">
                   <Button
                     variant="outline"
-                    className="h-10 px-4 rounded-md border-gray-200 text-gray-500 hover:text-[#7C3AED] hover:bg-purple-50 transition-all font-semibold text-[12px] gap-2 cursor-pointer"
+                    className="h-10 px-4 rounded-md border-gray-200 text-gray-500 hover:text-[#7C3AED] hover:bg-purple-50 transition-all font-semibold text-[12px] gap-2 cursor-pointer shadow-none"
                   >
                     <Settings2 className="w-4 h-4" />
                     Settings
@@ -336,10 +318,10 @@ export default function PayrollClient({ data }: PayrollTableProps) {
         />
 
         <StatusDialog
-          open={alertConfig.open}
-          success={alertConfig.success}
-          message={alertConfig.message}
-          onClose={() => setAlertConfig((p) => ({ ...p, open: false }))}
+          open={statusOpen}
+          success={statusSuccess}
+          message={statusMessage}
+          onClose={() => setStatusOpen(false)}
         />
       </div>
     </div>

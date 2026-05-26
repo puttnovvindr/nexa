@@ -1,11 +1,12 @@
 "use client"
 
+import React from "react"
 import { Button } from "@/components/ui/button"
 import { updatePayrollStatus } from "@/actions/payroll-actions"
-import { useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { PayrollStatus } from "@prisma/client"
 import { cn } from "@/lib/utils"
+import { useCrudHandler } from "@/hooks/use-crud-handler"
 
 interface Props {
   id: string
@@ -13,14 +14,17 @@ interface Props {
 }
 
 export function PayrollRowActions({ id, status }: Props) {
-  const [isPending, startTransition] = useTransition()
   const router = useRouter()
+  const { isPending, handleAction } = useCrudHandler()
 
-  const handleUpdate = (newStatus: PayrollStatus) => {
-    startTransition(async () => {
-      await updatePayrollStatus(id, newStatus)
-      router.refresh()
-    })
+  const handleUpdate = async (newStatus: PayrollStatus) => {
+    await handleAction(
+      updatePayrollStatus(id, newStatus),
+      "",
+      () => {
+        router.refresh()
+      }
+    )
   }
 
   const getActionConfig = () => {

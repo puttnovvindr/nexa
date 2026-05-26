@@ -1,13 +1,13 @@
 "use client"
 
-import React, { useState, useTransition } from "react"
+import React, { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { updatePayrollStatusBulk } from "@/actions/payroll-actions"
 import { PayrollStatus } from "@prisma/client"
-import { ShieldCheck, AlertTriangle, X, Loader2, Layers } from "lucide-react"
+import { AlertTriangle, X, Loader2, Layers } from "lucide-react"
 import { BulkReviewDialog } from "./BulkReviewDialog"
 import { FlattenedPayroll } from "@/types/payroll"
-import { cn } from "@/lib/utils"
+import { useCrudHandler } from "@/hooks/use-crud-handler"
 
 interface Props {
   selectedIds: string[]
@@ -18,7 +18,7 @@ interface Props {
 
 export function PayrollBulkActions({ selectedIds, onClear, allData, onSelect }: Props) {
   const [isReviewOpen, setIsReviewOpen] = useState(false)
-  const [isPending, startTransition] = useTransition()
+  const { isPending, handleAction } = useCrudHandler()
   
   if (selectedIds.length === 0) return null
 
@@ -30,12 +30,15 @@ export function PayrollBulkActions({ selectedIds, onClear, allData, onSelect }: 
     if (selectedIds.length <= 1) setIsReviewOpen(false)
   }
 
-  const handleBulkConfirm = () => {
-    startTransition(async () => {
-      await updatePayrollStatusBulk(selectedIds, PayrollStatus.APPROVED)
-      setIsReviewOpen(false)
-      onClear()
-    })
+  const handleBulkConfirm = async () => {
+    await handleAction(
+      updatePayrollStatusBulk(selectedIds, PayrollStatus.APPROVED),
+      "",
+      () => {
+        setIsReviewOpen(false)
+        onClear()
+      }
+    )
   }
 
   return (

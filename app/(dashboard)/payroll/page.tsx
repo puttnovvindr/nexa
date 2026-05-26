@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import PayrollClient from "@/components/payroll/PayrollClient";
+import PayrollClient from "@/features/payroll/PayrollClient";
 import { Metadata } from "next";
 import { SerializedPayroll } from "@/types/payroll";
 import { EmploymentBasis } from "@prisma/client";
